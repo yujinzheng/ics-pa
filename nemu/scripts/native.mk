@@ -24,7 +24,6 @@ run: run-env
 
 gdb: run-env
 	$(call git_commit, "gdb")
-	@echo yujinzheng
 	gdb -s $(BINARY) --args $(NEMU_EXEC)
 
 clean-tools = $(dir $(shell find ./tools -name "Makefile"))

@@ -42,6 +42,7 @@ $(OBJ_DIR)/%.o: %.c
 app: $(BINARY)
 
 $(BINARY): $(OBJS) $(ARCHIVES)
+	@echo yujinzheng
 	@echo + LD $@
 	@$(LD) -o $@ $(OBJS) $(LDFLAGS) $(ARCHIVES) $(LIBS)
 
