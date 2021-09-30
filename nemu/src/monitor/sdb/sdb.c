@@ -34,7 +34,7 @@ static int cmd_c(char *args) {
 
 static int cmd_si(char *args) {
     int steps;
-    printf("输入参数为：%c\n", *args);
+    printf("输入参数为：%lu\n", strlen(args));
     if (args == NULL) {
         steps = 1;
     } else {
