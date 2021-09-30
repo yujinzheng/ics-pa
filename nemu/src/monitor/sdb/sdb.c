@@ -37,18 +37,17 @@ static int cmd_si(char *args) {
     if (args == NULL) {
         steps = 1;
     } else {
-        printf("%c\n", *args);
         char *arg = strtok(args, " ");
         char *next_arg = strtok(NULL, " ");
 
         // 判断是否有多个参数
         if (next_arg != NULL) {
-            printf("too many args: %c\n", *args);
+            printf("too many args\n");
             return 0;
         } else {
             for (int start = 0; start < strlen(arg); start++) {
                 if (!isdigit(*(arg+start))) {
-                    printf("the arg is invalid: %c\n", *arg);
+                    printf("the arg is invalid\n");
                     return 0;
                 }
             }
