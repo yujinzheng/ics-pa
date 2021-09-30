@@ -37,6 +37,7 @@ static int cmd_si(char *args) {
     if (args == NULL) {
         steps = 1;
     } else {
+        printf("%c\n", *args);
         char *arg = strtok(args, " ");
         char *next_arg = strtok(NULL, " ");
 
