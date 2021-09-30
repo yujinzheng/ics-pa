@@ -42,6 +42,8 @@ static int cmd_si(char *args) {
         // 判断是否有多个参数
         char *arg_end = arg + strlen(arg) + 1;
         char *args_end = args + strlen(args);
+        printf("%s\n", arg_end);
+        printf("%s\n", args_end);
         if (arg_end < args_end) {
             printf("too many args: %c\n", *args);
             return 0;
