@@ -58,7 +58,28 @@ static int cmd_si(char *args) {
     return 0;
 }
 
+static int cmd_info(char *args) {
+    if (args == NULL) {
+        printf("please input args!\n");
+        return 0;
+    } else {
+        char *arg = strtok(args, " ");
+        char *next_arg = strtok(NULL, " ");
 
+        // 判断是否有多个参数
+        if (next_arg != NULL) {
+            printf("too many args\n");
+            return 0;
+        } else {
+            switch (*arg) {
+                case 'r': printf("r"); break;
+                case 'w': printf("w"); break;
+                default: printf("invalid args!\n"); break;
+            }
+        }
+    }
+    return 0;
+}
 
 static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
@@ -76,6 +97,7 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step Run", cmd_si},
+  {"info", "Display informations about reg state or monitor info", cmd_info}
 
   /* TODO: Add more commands */
 
