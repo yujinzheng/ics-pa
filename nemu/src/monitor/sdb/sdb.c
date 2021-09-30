@@ -32,6 +32,32 @@ static int cmd_c(char *args) {
   return 0;
 }
 
+static int cmd_si(char *args) {
+    int steps;
+    if (args == NULL) {
+        steps = 1;
+    } else {
+        char *arg = strtok(args, " ");
+
+        // 判断是否有多个参数
+        if (arg + strlen(arg) + 1 < args + strlen(args)) {
+            printf("too many args!");
+            return 0;
+        } else {
+            for (int start = 0; start < strlen(arg); start++) {
+                if (!isdigit(*(arg+start))) {
+                    printf("the arg is invalid");
+                    return 0;
+                }
+            }
+            steps = atoi(arg);
+        }
+    }
+    cpu_exec(steps);
+    return 0;
+}
+
+
 
 static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
@@ -48,6 +74,7 @@ static struct {
   { "help", "Display informations about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
+  {"si", "Step Run", cmd_si},
 
   /* TODO: Add more commands */
 
