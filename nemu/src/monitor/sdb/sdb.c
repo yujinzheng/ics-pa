@@ -40,9 +40,9 @@ static int cmd_si(char *args) {
         char *arg = strtok(args, " ");
 
         // 判断是否有多个参数
+        printf("%s", arg + strlen(arg) + 1);
+        printf("%s", args + strlen(args));
         if (arg + strlen(arg) + 1 < args + strlen(args)) {
-            printf("%s", arg + strlen(arg) + 1);
-            printf("%s", args + strlen(args));
             printf("too many args: %c\n", *args);
             return 0;
         } else {
