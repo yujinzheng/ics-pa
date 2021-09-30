@@ -34,16 +34,15 @@ static int cmd_c(char *args) {
 
 static int cmd_si(char *args) {
     int steps;
-    printf("输入参数为：%lu\n", strlen(args));
     if (args == NULL) {
         steps = 1;
     } else {
         char *arg = strtok(args, " ");
 
         // 判断是否有多个参数
-        printf("%s\n", arg);
-        printf("%s\n", args);
-        if (arg + strlen(arg) + 1 < args + strlen(args)) {
+        char *arg_end = arg + strlen(arg) + 1;
+        char *args_end = args + strlen(args);
+        if (arg_end < args_end) {
             printf("too many args: %c\n", *args);
             return 0;
         } else {
