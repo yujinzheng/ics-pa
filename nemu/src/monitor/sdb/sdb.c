@@ -41,12 +41,12 @@ static int cmd_si(char *args) {
 
         // 判断是否有多个参数
         if (arg + strlen(arg) + 1 < args + strlen(args)) {
-            printf("too many args!");
+            printf("too many args: %c\n", *args);
             return 0;
         } else {
             for (int start = 0; start < strlen(arg); start++) {
                 if (!isdigit(*(arg+start))) {
-                    printf("the arg is invalid");
+                    printf("the arg is invalid: %c\n", *arg);
                     return 0;
                 }
             }
