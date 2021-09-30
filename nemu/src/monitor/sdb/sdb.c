@@ -43,7 +43,7 @@ static int cmd_si(char *args) {
         char *arg_end = arg + strlen(arg) - 1;
         char *args_end = args + 1;
         printf("%c\n", *arg);
-        printf("%c\n", *args);
+        printf("%c\n", *args_end);
         if (arg_end < args_end) {
             printf("too many args: %c\n", *args);
             return 0;
