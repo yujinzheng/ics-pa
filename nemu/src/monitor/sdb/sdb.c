@@ -3,6 +3,8 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
+#include <regex.h>
+#include <memory/vaddr.h>
 
 static int is_batch_mode = false;
 
@@ -72,11 +74,73 @@ static int cmd_info(char *args) {
             return 0;
         } else {
             switch (*arg) {
-                case 'r': printf("r"); break;
+                case 'r': isa_reg_display(); break;
                 case 'w': printf("w"); break;
                 default: printf("invalid args!\n"); break;
             }
         }
+    }
+    return 0;
+}
+
+static int cmd_x(char *args) {
+    if (args == NULL) {
+        printf("please input args!\n");
+        return 0;
+    } else {
+
+        // 检查是否缺少参数
+        char *first_arg = strtok(args, " ");
+        if (first_arg == NULL) {
+            printf("args miss: first arg\n");
+            return 0;
+        }
+        char *second_arg = strtok(NULL, " ");
+        if (second_arg == NULL) {
+            printf("args miss: second arg\n");
+            return 0;
+        }
+
+        char *third_arg = strtok(NULL, " ");
+        if (third_arg != NULL) {
+            printf("too many args\n");
+            return 0;
+        }
+
+        // 检查需要扫描的内存数，如果输入不为数字，则报错处理
+        for (int start = 0; start < strlen(first_arg); start++) {
+            if (!isdigit(*(first_arg+start))) {
+                printf("the arg is invalid: %s\n", first_arg);
+                return 0;
+            }
+        }
+        int steps = strtol(first_arg, &first_arg, 10);
+
+        // 检查输入的表达式的格式
+        const char * pattern = "^0x[0-9a-f]{8}";
+        int flag = REG_EXTENDED;
+        regmatch_t pmatch[1];
+        const size_t nmatch = 1;
+        regex_t reg;
+
+        // 编译正则表达式
+        regcomp(&reg, pattern, flag);
+
+        // 执行正则表达式和缓存的比较
+        int status = regexec(&reg, second_arg, nmatch, pmatch, 0);
+        regfree(&reg);
+        if (status == REG_NOMATCH) {
+            printf("invalid address: %s\n", second_arg);
+            return 0;
+        }
+
+        printf("%s:\t", second_arg);
+        uint32_t addr = (uint32_t)strtol(second_arg, &second_arg, 16);
+        for (int idx = 0; idx < steps; ++idx) {
+            word_t addr_value = vaddr_read(addr + 4 * idx, 4);
+            printf("0x%08x\t", addr_value);
+        }
+        printf("\n");
     }
     return 0;
 }
@@ -97,7 +161,8 @@ static struct {
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step Run", cmd_si},
-  {"info", "Display informations about reg state or monitor info", cmd_info}
+  {"info", "Display informations about reg state or monitor info", cmd_info},
+  {"x", "Scans a specified number of memory from a specified location", cmd_x}
 
   /* TODO: Add more commands */
 
