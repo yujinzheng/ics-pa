@@ -17,6 +17,11 @@ static char *code_format =
 "}";
 
 static void gen_rand_expr() {
+//    switch (rand() % 3) {
+//        case 0:
+//            gen_num();
+//            break;
+//    }
   buf[0] = '\0';
 }
 

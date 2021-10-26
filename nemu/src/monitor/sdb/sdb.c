@@ -145,6 +145,18 @@ static int cmd_x(char *args) {
     return 0;
 }
 
+static int cmd_p(char *args) {
+    if (args == NULL) {
+        printf("args miss: please input expression\n");
+        return 0;
+    } else {
+        bool success = true;
+        int result = expr(args, &success);
+        printf("the express %s result is: %d\n", args, result);
+    }
+    return 0;
+}
+
 static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
   return -1;
@@ -162,7 +174,8 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step Run", cmd_si},
   {"info", "Display informations about reg state or monitor info", cmd_info},
-  {"x", "Scans a specified number of memory from a specified location", cmd_x}
+  {"x", "Scans a specified number of memory from a specified location", cmd_x},
+  {"p", "Find the value of the expression", cmd_p}
 
   /* TODO: Add more commands */
 
