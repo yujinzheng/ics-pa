@@ -15,6 +15,15 @@ void isa_reg_display() {
     }
 }
 
+// 返回名字为s的寄存器的值
 word_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
+    int length = sizeof(regs) / sizeof(regs[0]);
+    for (int idx = 0; idx < length; ++idx) {
+        if (strcmp(s, regs[idx]) == 0) {
+            *success = true;
+            return cpu.gpr[idx]._32;
+        }
+    }
+    *success = false;
+    return 0;
 }

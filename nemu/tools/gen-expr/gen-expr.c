@@ -16,13 +16,41 @@ static char *code_format =
 "  return 0; "
 "}";
 
+static void gen_rand_op() {
+    switch (rand() % 4) {
+        case 0:
+            strcat(buf, "+");
+            break;
+        case 1:
+            strcat(buf, "-");
+            break;
+        case 2:
+            strcat(buf, "*");
+            break;
+        default:
+            strcat(buf, "/");
+            break;
+    }
+}
+
 static void gen_rand_expr() {
-//    switch (rand() % 3) {
-//        case 0:
-//            gen_num();
-//            break;
-//    }
-  buf[0] = '\0';
+    char expr[32] = {};
+    switch (rand() % 3) {
+        case 0:
+            sprintf(expr, "%d", rand());
+            strcat(buf, expr);
+            break;
+        case 1:
+            strcat(buf, "(");
+            gen_rand_expr();
+            strcat(buf, ")");
+            break;
+        default:
+            gen_rand_expr();
+            gen_rand_op();
+            gen_rand_expr();
+            break;
+    }
 }
 
 int main(int argc, char *argv[]) {

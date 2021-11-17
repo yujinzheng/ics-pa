@@ -29,11 +29,15 @@ static char* rl_gets() {
   return line_read;
 }
 
+
+// 继续运行命令
 static int cmd_c(char *args) {
   cpu_exec(-1);
   return 0;
 }
 
+
+// 让程序单步执行N条指令后暂停执行
 static int cmd_si(char *args) {
     int steps;
     if (args == NULL) {
@@ -60,6 +64,8 @@ static int cmd_si(char *args) {
     return 0;
 }
 
+
+// 打印寄存器状态或监视点信息
 static int cmd_info(char *args) {
     if (args == NULL) {
         printf("please input args!\n");
@@ -74,7 +80,7 @@ static int cmd_info(char *args) {
             return 0;
         } else {
             switch (*arg) {
-                case 'r': isa_reg_display(); break;
+                case 'r':isa_reg_display(); break;
                 case 'w': printf("w"); break;
                 default: printf("invalid args!\n"); break;
             }
@@ -83,6 +89,8 @@ static int cmd_info(char *args) {
     return 0;
 }
 
+
+// 求出表达式的值，并将结果作为起始内存地址，以十六进制形式输出连续的N个4字节
 static int cmd_x(char *args) {
     if (args == NULL) {
         printf("please input args!\n");
@@ -135,7 +143,7 @@ static int cmd_x(char *args) {
         }
 
         printf("%s:\t", second_arg);
-        uint32_t addr = (uint32_t)strtol(second_arg, &second_arg, 16);
+        uint32_t addr = (uint32_t)strtol(second_arg, NULL, 16);
         for (int idx = 0; idx < steps; ++idx) {
             word_t addr_value = vaddr_read(addr + 4 * idx, 4);
             printf("0x%08x\t", addr_value);
@@ -145,6 +153,8 @@ static int cmd_x(char *args) {
     return 0;
 }
 
+
+// 求出表达式的值
 static int cmd_p(char *args) {
     if (args == NULL) {
         printf("args miss: please input expression\n");
@@ -152,16 +162,38 @@ static int cmd_p(char *args) {
     } else {
         bool success = true;
         int result = expr(args, &success);
+        if (success == false) {
+            printf("Can not get result of express %s\n", args);
+            return 0;
+        }
         printf("the express %s result is: %d\n", args, result);
     }
     return 0;
 }
 
+// 设置监视点，当表达式 的值发生变化时，暂停程序的执行
+static int cmd_w(char *args) {
+    WP *wp = new_wp();
+    wp->exp = args;
+    bool success = true;
+    int result = expr(args, &success);
+    if (success == false) {
+        printf("The calculation data is incorrect, exp is: %s\n", args);
+        return 0;
+    }
+    wp->value = result;
+    return 0;
+}
+
+
+// 退出
 static int cmd_q(char *args) {
   nemu_state.state = NEMU_QUIT;
   return -1;
 }
 
+
+// 帮助
 static int cmd_help(char *args);
 
 static struct {
@@ -175,7 +207,8 @@ static struct {
   {"si", "Step Run", cmd_si},
   {"info", "Display informations about reg state or monitor info", cmd_info},
   {"x", "Scans a specified number of memory from a specified location", cmd_x},
-  {"p", "Find the value of the expression", cmd_p}
+  {"p", "Find the value of the expression", cmd_p},
+  {"w", "Set watchpoint", cmd_w}
 
   /* TODO: Add more commands */
 

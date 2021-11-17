@@ -5,9 +5,10 @@
  */
 #include <regex.h>
 #include <ctype.h>
+#include <memory/vaddr.h>
 
 enum {
-    TK_NOTYPE = 256, TK_EQ, TK_DECIMAL = -1,
+    TK_NOTYPE = 256, TK_EQ, TK_DECIMAL = -1, TK_HEX = -2, TK_REG = -3,
 
     /* TODO: Add more token types */
 
@@ -31,6 +32,10 @@ static struct rule {
         {"\\(",  3},         // 左括号
         {"\\)",  3},         // 右括号
         {"[0-9]+", TK_DECIMAL},         // 十进制整数
+        {"!=", 2},           // 不等于
+        {"\\&\\&", 2},       // 逻辑与
+        {"0x[0-9a-f]+", TK_HEX}, // 十六进制的数
+        {"\\$[0-9a-z]+", TK_REG},// 寄存器名字
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -73,6 +78,7 @@ static bool make_token(char *e) {
     nr_token = 0;
 
     int is_negative = 0;
+    int is_deref = 0;
 
     while (e[position] != '\0') {
         /* Try all rules one by one. */
@@ -105,6 +111,15 @@ static bool make_token(char *e) {
                             return false;
                         }
                         snprintf(tokenInfo.str, substr_len + 1, "%s", substr_start);
+
+                        // 如果是解引用，则需要从地址中读取值然后再写到token里面
+                        // 解引用的判断要在前面，防止对解引用的数据取负数
+                        if (is_deref == 1) {
+                            uint32_t addr = (uint32_t)strtol(tokenInfo.str, NULL, 16);
+                            word_t addr_value = vaddr_read(addr, 4);
+                            sprintf(tokenInfo.str, "%d", addr_value);
+                            is_deref = 0;
+                        }
                         if (is_negative == 1) {
                             char minus[32] = {"-"};
                             strcat(minus, tokenInfo.str);
@@ -114,7 +129,6 @@ static bool make_token(char *e) {
                         tokens[nr_token] = tokenInfo;
                         nr_token++;
                         break;
-
                     // 如果是减号，需要判断是否是负数
                     case 1:
                         // 如果负号在首位，或者前一位token是操作符，那么说明后面跟的数应该为负数
@@ -122,6 +136,18 @@ static bool make_token(char *e) {
                         if (tokenInfo.str[0] == '-') {
                             if (nr_token == 0 || tokens[nr_token - 1].type > 0) {
                                 is_negative = 1;
+                                break;
+                            }
+                        }
+                        tokens[nr_token] = tokenInfo;
+                        nr_token++;
+                        break;
+                    case 2:
+                        // 如果星号在首位，或者前一位token是操作符，那么说明应该是解引用
+                        snprintf(tokenInfo.str, substr_len + 1, "%s", substr_start);
+                        if (tokenInfo.str[0] == '*') {
+                            if (nr_token == 0 || tokens[nr_token - 1].type > 0) {
+                                is_deref = 1;
                                 break;
                             }
                         }
@@ -187,19 +213,35 @@ word_t eval(int p, int q, bool *success) {
         *success = false;
         return 0;
     } else if (p == q) {
-        // 判断除了负号以外的第一个char是否为数字
-        // 因为前面有正则约束
-        int digit_start = 0;
-        if (tokens[p].str[0] == '-') {
-            digit_start++;
-        }
-        if (!isdigit(*(tokens[p].str + digit_start))) {
+        if (tokens[p].type == TK_DECIMAL) {
+            // 判断除了负号以外的第一个char是否为数字
+            // 因为前面有正则约束
+            int digit_start = 0;
+            if (tokens[p].str[0] == '-') {
+                digit_start++;
+            }
+            if (!isdigit(*(tokens[p].str + digit_start))) {
+                *success = false;
+                printf("the input is invalid, position: %d\n", p);
+                return 0;
+            }
+            return strtol(tokens[p].str, NULL, 10);
+        } else if (tokens[p].type == TK_HEX) {
+            return strtol(tokens[p].str, NULL, 16);
+        } else if (tokens[p].type == TK_REG) {
+            bool *reg_success = false;
+            int token_num = isa_reg_str2val(tokens[p].str, reg_success);
+            if (reg_success == false) {
+                printf("Get value from reg failed, the reg name is: %s\n", tokens[p].str);
+                *success = false;
+                return 0;
+            }
+            return token_num;
+        } else {
+            printf("Can not get value from token, the token is: %s\n", tokens[p].str);
             *success = false;
-            printf("the input is invalid, position: %d\n", p);
             return 0;
         }
-        char *ptr;
-        return strtol(tokens[p].str, &ptr, 10);
     } else if (check_parentheses(p, q) == true) {
         return eval(p + 1, q - 1, success);
     } else {
@@ -223,7 +265,7 @@ word_t eval(int p, int q, bool *success) {
                         brackets--;
                         if (brackets < 0) {
                             *success = false;
-                            printf("invalid express");
+                            printf("invalid express\n");
                             return 0;
                         }
 
@@ -260,7 +302,15 @@ word_t eval(int p, int q, bool *success) {
         }
 
         int val1 = eval(p, op - 1, success);
+        if (success == false) {
+            printf("Can not get val1 from express, the p is: %d, q is %d\n", p, op - 1);
+            return 0;
+        }
         int val2 = eval(op + 1, q, success);
+        if (success == false) {
+            printf("Can not get val2 from express, the p is: %d, q is %d\n", p, op - 1);
+            return 0;
+        }
 
         switch (tokens[op].str[0]) {
             case '+':
@@ -276,6 +326,30 @@ word_t eval(int p, int q, bool *success) {
                     return 0;
                 }
                 return val1 / val2;
+            case '!':
+                if (tokens[op].str[1] == '=') {
+                    return val1 == val2;
+                } else {
+                    *success = false;
+                    printf("Unknown symbol: %s\n", tokens[op].str);
+                    return 0;
+                }
+            case '&':
+                if (tokens[op].str[1] == '&') {
+                    return val1 && val2;
+                } else {
+                    *success = false;
+                    printf("Unknown symbol: %s\n", tokens[op].str);
+                    return 0;
+                }
+            case '=':
+                if (tokens[op].str[1] == '=') {
+                    return val1 == val2;
+                } else {
+                    *success = false;
+                    printf("Unknown symbol: %s\n", tokens[op].str);
+                    return 0;
+                }
             default:
                 *success = false;
                 printf("Unknown symbol: %c\n", tokens[op].str[0]);
