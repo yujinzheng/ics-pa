@@ -116,6 +116,7 @@ static bool make_token(char *e) {
                         // 解引用的判断要在前面，防止对解引用的数据取负数
                         if (is_deref == 1) {
                             uint32_t addr = (uint32_t)strtol(tokenInfo.str, NULL, 16);
+                            printf("%u\n", *(&addr));
                             word_t addr_value = vaddr_read(addr, 4);
                             sprintf(tokenInfo.str, "%d", addr_value);
                             is_deref = 0;
@@ -208,9 +209,9 @@ bool check_parentheses(int p, int q) {
     return true;
 }
 
-word_t eval(int p, int q, bool *success) {
+word_t eval(int p, int q, bool success) {
     if (p > q) {
-        *success = false;
+        success = false;
         return 0;
     } else if (p == q) {
         if (tokens[p].type == TK_DECIMAL) {
@@ -221,25 +222,26 @@ word_t eval(int p, int q, bool *success) {
                 digit_start++;
             }
             if (!isdigit(*(tokens[p].str + digit_start))) {
-                *success = false;
+                success = false;
                 printf("the input is invalid, position: %d\n", p);
                 return 0;
             }
+            printf("++++++++++++++++++%s\n", tokens[p].str);
             return strtol(tokens[p].str, NULL, 10);
         } else if (tokens[p].type == TK_HEX) {
             return strtol(tokens[p].str, NULL, 16);
         } else if (tokens[p].type == TK_REG) {
-            bool *reg_success = false;
-            int token_num = isa_reg_str2val(tokens[p].str, reg_success);
-            if (reg_success == false) {
+            bool reg_success = 0;
+            int token_num = isa_reg_str2val(tokens[p].str, &reg_success);
+            if (reg_success == 0) {
                 printf("Get value from reg failed, the reg name is: %s\n", tokens[p].str);
-                *success = false;
+                success = false;
                 return 0;
             }
             return token_num;
         } else {
             printf("Can not get value from token, the token is: %s\n", tokens[p].str);
-            *success = false;
+            success = false;
             return 0;
         }
     } else if (check_parentheses(p, q) == true) {
@@ -264,7 +266,7 @@ word_t eval(int p, int q, bool *success) {
                     if (tokens[temp_position].str[0] == ')') {
                         brackets--;
                         if (brackets < 0) {
-                            *success = false;
+                            success = false;
                             printf("invalid express\n");
                             return 0;
                         }
@@ -279,7 +281,7 @@ word_t eval(int p, int q, bool *success) {
 
                     // while退出的保险丝，同时防止下标溢出，当temp_position超出下标时，直接报错
                     if (temp_position > q) {
-                        *success = false;
+                        success = false;
                         printf("Can not find middle operation\n");
                         return 0;
                     }
@@ -321,7 +323,7 @@ word_t eval(int p, int q, bool *success) {
                 return val1 * val2;
             case '/':
                 if (val2 == 0) {
-                    *success = false;
+                    success = false;
                     printf("The divisor cannot be 0\n");
                     return 0;
                 }
@@ -330,7 +332,7 @@ word_t eval(int p, int q, bool *success) {
                 if (tokens[op].str[1] == '=') {
                     return val1 == val2;
                 } else {
-                    *success = false;
+                    success = false;
                     printf("Unknown symbol: %s\n", tokens[op].str);
                     return 0;
                 }
@@ -338,7 +340,7 @@ word_t eval(int p, int q, bool *success) {
                 if (tokens[op].str[1] == '&') {
                     return val1 && val2;
                 } else {
-                    *success = false;
+                    success = false;
                     printf("Unknown symbol: %s\n", tokens[op].str);
                     return 0;
                 }
@@ -346,12 +348,12 @@ word_t eval(int p, int q, bool *success) {
                 if (tokens[op].str[1] == '=') {
                     return val1 == val2;
                 } else {
-                    *success = false;
+                    success = false;
                     printf("Unknown symbol: %s\n", tokens[op].str);
                     return 0;
                 }
             default:
-                *success = false;
+                success = false;
                 printf("Unknown symbol: %c\n", tokens[op].str[0]);
                 return 0;
         }
@@ -360,7 +362,7 @@ word_t eval(int p, int q, bool *success) {
 
 word_t expr(char *e, bool *success) {
     if (!make_token(e)) {
-        *success = false;
+        success = false;
         return 0;
     }
     /* TODO: Insert codes to evaluate the expression. */

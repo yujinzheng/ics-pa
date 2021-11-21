@@ -35,9 +35,9 @@ $(OBJ_DIR)/%.o: %.c
 	@$(CC) $(CFLAGS) -c -o $@ $<
 	$(call call_fixdep, $(@:.o=.d), $@)
 #   下面的代码可以打印详细的代码信息
-#	@$(CC) $(CFLAGS) -E $< | \
-#		grep -ve '^#' | \
-#		clang-format - > $(basename $@).i
+	@$(CC) $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 # Depencies
 -include $(OBJS:.o=.d)
