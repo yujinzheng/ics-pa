@@ -105,13 +105,6 @@ static inline def_rtl(lm, rtlreg_t *dest, const rtlreg_t* addr, word_t offset, i
   *dest = vaddr_read(*addr + offset, len);
 }
 
-static inline def_rtl(lm_sig, rtlreg_t *dest, const rtlreg_t* addr, word_t offset, int len, int mov) {
-    int val = vaddr_read(*addr + offset, len);
-    Log("mov: %d, val: %#x，val_mov: %#x", mov, val, (val << mov) >> mov);
-    val = (val << mov) >> mov;
-    *dest = val;
-}
-
 static inline def_rtl(sm, const rtlreg_t *src1, const rtlreg_t* addr, word_t offset, int len) {
   vaddr_write(*addr + offset, len, *src1);
 }

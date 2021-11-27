@@ -22,11 +22,8 @@ CXX := g++
 endif
 LD := $(CXX)
 INCLUDES = $(addprefix -I, $(INC_PATH))
-#CFLAGS  := -O2 -MMD -Wall -Werror $(INCLUDES) $(CFLAGS)
-#LDFLAGS := -O2 $(LDFLAGS)
-
-CFLAGS  := -O0 -MMD -Wall -Werror $(INCLUDES) $(CFLAGS)
-LDFLAGS := -O0 $(LDFLAGS)
+CFLAGS  := -O2 -MMD -Wall -Werror $(INCLUDES) $(CFLAGS)
+LDFLAGS := -O2 $(LDFLAGS)
 
 OBJS = $(SRCS:%.c=$(OBJ_DIR)/%.o) $(CXXSRC:%.cc=$(OBJ_DIR)/%.o)
 
@@ -36,10 +33,6 @@ $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 	$(call call_fixdep, $(@:.o=.d), $@)
-#   下面的代码可以打印详细的代码信息
-	@$(CC) $(CFLAGS) -E $< | \
-		grep -ve '^#' | \
-		clang-format - > $(basename $@).i
 
 $(OBJ_DIR)/%.o: %.cc
 	@echo + CXX $<
