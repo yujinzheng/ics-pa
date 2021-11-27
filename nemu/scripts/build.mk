@@ -33,6 +33,10 @@ $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 	$(call call_fixdep, $(@:.o=.d), $@)
+#   下面的代码可以打印详细的代码信息
+	@$(CC) $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 $(OBJ_DIR)/%.o: %.cc
 	@echo + CXX $<
