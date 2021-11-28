@@ -59,6 +59,26 @@ static  char** check_cmd_args(int arg_num, char *args, char *split, int need_che
     return result;
 }
 
+// 执行正则表达式的比较
+static int regx_check(const char *pattern, char *arg) {
+    int flag = REG_EXTENDED;
+    regmatch_t pmatch[1];
+    const size_t nmatch = 1;
+    regex_t reg;
+
+    // 编译正则表达式
+    regcomp(&reg, pattern, flag);
+
+    // 执行正则表达式和缓存的比较
+    int status = regexec(&reg, arg, nmatch, pmatch, 0);
+    regfree(&reg);
+    if (status == REG_NOMATCH) {
+        printf("invalid address: %s\n", arg);
+        return 0;
+    }
+    return 1;
+}
+
 // 继续运行程序
 static int cmd_c(char *args) {
   cpu_exec(-1);
@@ -154,30 +174,34 @@ static int cmd_x(char *args) {
         int steps = (int)strtol(first_arg, NULL, 10);
 
         // 检查输入的表达式的格式
-        const char * pattern = "^0x[0-9a-f]{8}";
-        int flag = REG_EXTENDED;
-        regmatch_t pmatch[1];
-        const size_t nmatch = 1;
-        regex_t reg;
+        const char *hex_pattern = "^0x[0-9a-f]{8}";
+        const char *pc_pattern = "^\\$pc";
+        int hex_result = regx_check(hex_pattern, second_arg);
+        int reg_result = regx_check(pc_pattern, second_arg);
+        uint32_t addr = cpu.pc;
 
-        // 编译正则表达式
-        regcomp(&reg, pattern, flag);
+        if (hex_result == 1) {
+            addr = (uint32_t)strtol(second_arg, &second_arg, 16);
+        }
 
-        // 执行正则表达式和缓存的比较
-        int status = regexec(&reg, second_arg, nmatch, pmatch, 0);
-        regfree(&reg);
-        if (status == REG_NOMATCH) {
-            printf("invalid address: %s\n", second_arg);
+        // 如果两个正则都没有匹配上，说明无法正常获得地址
+        if (hex_pattern ==0 && reg_result == 0) {
+            printf("Can not get address of arg: %s", second_arg);
             return 0;
         }
 
-        printf("%s:\t", second_arg);
-        uint32_t addr = (uint32_t)strtol(second_arg, &second_arg, 16);
+        // 准备开始打印扫描结果了，先打印表头
+        printf("%s\t\t%s\t\t%s\n", "addr", "16进制", "10进制");
+
         for (int idx = 0; idx < steps; ++idx) {
+            // 第一列打印地址
+            printf("0x%08x:\t", addr + 4 * idx);
+            // 第二列打印十六进制的值
             word_t addr_value = vaddr_read(addr + 4 * idx, 4);
             printf("0x%08x\t", addr_value);
+            // 第三列打印十进制的值
+            printf("%08d\n", addr_value);
         }
-        printf("\n");
     }
     return 0;
 }
