@@ -206,7 +206,7 @@ bool check_parentheses(int p, int q, bool *success) {
     return true;
 }
 
-word_t compute_two_value(int val1, int val2, int op, bool *success) {
+word_t compute_two_value(unsigned val1, unsigned val2, int op, bool *success) {
     switch (tokens[op].str[0]) {
         case '+':
             return val1 + val2;
@@ -343,17 +343,17 @@ word_t eval(int p, int q, bool *success) {
             return 0;
         }
 
-        int val1 = eval(p, op - 1, success);
+        unsigned val1 = eval(p, op - 1, success);
         if (success == false) {
             Log("Can not get val1 from express, the p is: %d, q is %d", p, op - 1);
             return 0;
         }
-        int val2 = eval(op + 1, q, success);
+        unsigned val2 = eval(op + 1, q, success);
         if (success == false) {
             Log("Can not get val2 from express, the p is: %d, q is %d", op + 1, q);
             return 0;
         }
-        Log("Start to compute value, val1 = %d, val2 = %d, operator is %s, start is %d, end is %d", val1, val2,
+        Log("Start to compute value, val1 = %u, val2 = %u, operator is %s, start is %d, end is %d", val1, val2,
             tokens[op].str, p, q);
         return compute_two_value(val1, val2, op, success);
     }
@@ -377,18 +377,18 @@ void scan_tokens(Token *exp_tokens, bool *success) {
             if (tokens[idx + 1].type == TK_DEC) {
                 // 如果是十进制的数，则只需要向后offset 1位
                 offset = 1;
-                int token_num = (int) strtol(tokens[idx + offset].str, NULL, 10);
+                unsigned token_num = (unsigned) strtol(tokens[idx + offset].str, NULL, 10);
                 sprintf(tokens[idx + offset].str, "%d", 0 - token_num);
             } else if (tokens[idx + 1].type == TK_HEX) {
                 // 如果是十六进制的数，则只需要向后offset 1位
                 offset = 1;
-                int token_num = (int) strtol(tokens[idx + offset].str, NULL, 16);
+                unsigned token_num = (unsigned) strtol(tokens[idx + offset].str, NULL, 16);
                 sprintf(tokens[idx + offset].str, "%d", 0 - token_num);
             } else if (tokens[idx + 1].type == TK_DEREF && tokens[idx + 2].type == TK_HEX) {
                 // 如果后面接的是解引用符号，则只需要向后offset 1位
                 offset = 2;
-                vaddr_t addr = (int) strtol(tokens[idx + offset].str, NULL, 16);
-                int token_num = vaddr_read(addr, 4);
+                vaddr_t addr = (vaddr_t) strtol(tokens[idx + offset].str, NULL, 16);
+                unsigned token_num = vaddr_read(addr, 4);
                 sprintf(tokens[idx + offset].str, "%d", 0 - token_num);
             } else {
                 Log("Invalid exp, can not parse negative number, position is %d", idx);
@@ -403,8 +403,8 @@ void scan_tokens(Token *exp_tokens, bool *success) {
             // 对解引用进行判断，解引用只有一种场景，那就是下一个数必须为十六进制的数，否则就报错
             int offset = 1;
             if (tokens[idx + offset].type == TK_HEX) {
-                vaddr_t addr = (int) strtol(tokens[idx + offset].str, NULL, 16);
-                int token_num = vaddr_read(addr, 4);
+                vaddr_t addr = (vaddr_t) strtol(tokens[idx + offset].str, NULL, 16);
+                unsigned token_num = vaddr_read(addr, 4);
                 sprintf(tokens[idx + offset].str, "%d", token_num);
             } else {
                 Log("Invalid exp, can not parse dereference address, position is %d", idx);
@@ -419,10 +419,14 @@ void scan_tokens(Token *exp_tokens, bool *success) {
             if (strcmp(name, "$0") != 0) {
                 remove_one_char(name, '$');
             }
-            int token_num = isa_reg_str2val(name, success);
+            unsigned token_num = isa_reg_str2val(name, success);
             if (*success == false) {
                 return;
             }
+            sprintf(tokens[idx].str, "%d", token_num);
+        } else if (tokens[idx].type == TK_HEX) {
+            // 如果是十六进制的值，也将其转换成十进制的值
+            unsigned token_num = (unsigned) strtol(tokens[idx].str, NULL, 16);
             sprintf(tokens[idx].str, "%d", token_num);
         }
         exp_tokens[length] = tokens[idx];
