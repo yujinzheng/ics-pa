@@ -31,18 +31,14 @@ static char* rl_gets() {
 
 // 判断参数个数是否超标，同时返回获取到的参数
 static  char** check_cmd_args(int arg_num, char *args, char *split, int need_check, char **result) {
-    char *first_arg = strtok(args, split);
     int count = 0;
-    result[0] = first_arg;
-    count++;
-    if (first_arg == NULL) {
-        printf("args miss: %d arg\n", count);
-        result[arg_num] = split;
-        return result;
-    }
-
-    while (count < arg_num) {
-        char *next_arg = strtok(NULL, split);
+    do {
+        char *next_arg;
+        if (count == 0) {
+            next_arg = strtok(args, split);
+        } else {
+            next_arg = strtok(NULL, split);
+        }
         result[count] = next_arg;
         count++;
         if (next_arg == NULL) {
@@ -50,7 +46,7 @@ static  char** check_cmd_args(int arg_num, char *args, char *split, int need_che
             result[arg_num] = split;
             return result;
         }
-    }
+    } while (count < arg_num);
 
     if (need_check == 1) {
         char *last_arg = strtok(NULL, split);
@@ -63,12 +59,13 @@ static  char** check_cmd_args(int arg_num, char *args, char *split, int need_che
     return result;
 }
 
+// 继续运行程序
 static int cmd_c(char *args) {
   cpu_exec(-1);
   return 0;
 }
 
-
+// 退出程序
 static int cmd_q(char *args) {
   return -1;
 }
@@ -137,7 +134,7 @@ static int cmd_x(char *args) {
     } else {
         char *p_arr[3];
         char *split = " ";
-        p_arr[1] = 0;
+        p_arr[2] = 0;
         check_cmd_args(2, args, split, 1, p_arr);
         if (p_arr[2] == split) {
             return 0;
