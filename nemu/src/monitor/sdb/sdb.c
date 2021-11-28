@@ -200,8 +200,25 @@ static int cmd_x(char *args) {
             word_t addr_value = vaddr_read(addr + 4 * idx, 4);
             printf("0x%08x\t", addr_value);
             // 第三列打印十进制的值
-            printf("%08d\n", addr_value);
+            printf("%d\n", addr_value);
         }
+    }
+    return 0;
+}
+
+// 求出表达式的值
+static int cmd_p(char *args) {
+    if (args == NULL) {
+        printf("args miss: please input expression\n");
+        return 0;
+    } else {
+        bool success = true;
+        int result = expr(args, &success);
+        if (success == false) {
+            printf("Can not get result of express %s\n", args);
+            return 0;
+        }
+        printf("the express %s result is: %d\t0x%x\n", args, result, result);
     }
     return 0;
 }
@@ -218,7 +235,8 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
   {"si", "Step Run", cmd_si},
   {"info", "Display informations about reg state or monitor info", cmd_info},
-  {"x", "Scans a specified number of memory from a specified location", cmd_x}
+  {"x", "Scans a specified number of memory from a specified location", cmd_x},
+  {"p", "Find the value of the expression", cmd_p},
 
   /* TODO: Add more commands */
 
