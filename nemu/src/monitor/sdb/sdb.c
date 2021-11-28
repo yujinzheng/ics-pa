@@ -10,6 +10,9 @@ static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
+WP *new_wp();
+WP *get_head();
+void free_wp(WP *wp);
 
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
@@ -73,7 +76,7 @@ static int regx_check(const char *pattern, char *arg) {
     int status = regexec(&reg, arg, nmatch, pmatch, 0);
     regfree(&reg);
     if (status == REG_NOMATCH) {
-        printf("invalid address: %s\n", arg);
+        printf("invalid arg: %s\n", arg);
         return 0;
     }
     return 1;
@@ -107,12 +110,11 @@ static int cmd_si(char *args) {
 
         // 用于判断参数的每一位是否都是数字
         // 这里也可以用正则表达式来优化
-        for (int start = 0; start < strlen(arg); start++) {
-            if (!isdigit(*(arg+start))) {
-                printf("the arg is invalid\n");
-                return 0;
-            }
+        int step_result = regx_check("[0-9]+", arg);
+        if (step_result != 1) {
+            return 0;
         }
+
         steps = (int)strtol(arg, NULL, 10);
     }
     cpu_exec(steps);
@@ -134,12 +136,23 @@ static int cmd_info(char *args) {
         }
 
         char *arg = p_arr[0];
-        printf("%u\n", *arg);
+        WP *head = get_head();
         switch (*arg) {
             // info r表示打印寄存器
             case 'r': isa_reg_display(); break;
                 // info w表示打印监视点
-            case 'w': printf("w"); break;
+            case 'w':
+                if (head == NULL || head->next == NULL) {
+                    printf("No watchpoint!\n");
+                    return 0;
+                }
+                printf("Number\t\tExpression\t\tOld value(DEC)\t\tOld value(HEX)\n");
+                WP *temp_wp = head->next;
+                while (temp_wp != NULL) {
+                    printf("%d\t\t%s\t\t\t%d\t\t\t0x%x\n", temp_wp->NO, temp_wp->expression, temp_wp->value, temp_wp->value);
+                    temp_wp = temp_wp->next;
+                }
+                break;
             default: printf("invalid args!\n"); break;
         }
     }
@@ -165,11 +178,9 @@ static int cmd_x(char *args) {
         char *second_arg = p_arr[1];
 
         // 检查需要扫描的内存数，如果输入不为数字，则报错处理
-        for (int start = 0; start < strlen(first_arg); start++) {
-            if (!isdigit(*(first_arg+start))) {
-                printf("the arg is invalid: %s\n", first_arg);
-                return 0;
-            }
+        int step_result = regx_check("[0-9]+", first_arg);
+        if (step_result != 1) {
+            return 0;
         }
         int steps = (int)strtol(first_arg, NULL, 10);
 
@@ -223,6 +234,71 @@ static int cmd_p(char *args) {
     return 0;
 }
 
+// 设置监视点
+static int cmd_w(char *args) {
+    if (args == NULL) {
+        printf("args miss: please input expression\n");
+        return 0;
+    } else {
+        bool success = true;
+        word_t result = expr(args, &success);
+        if (success == false) {
+            printf("Can not get result of watch point express %s\n", args);
+            return 0;
+        }
+        WP *head = new_wp();
+        if (head == NULL) {
+            return 0;
+        }
+        head->next->value = result;
+        memcpy(head->next->expression, args, 128);
+        printf("Set watchpoint #%d\n", head->next->NO);
+        printf("Expression is: %s\n", head->next->expression);
+        printf("Old value = %u\n", head->next->value);
+    }
+    return 0;
+}
+
+// 删除监视点
+static int cmd_d(char *args) {
+    if (args == NULL) {
+        printf("please input args!\n");
+        return 0;
+    } else {
+        char *p_arr[2];
+        char *split = " ";
+        p_arr[1] = 0;
+        check_cmd_args(1, args, split, 1, p_arr);
+        if (p_arr[1] == split) {
+            return 0;
+        }
+        char *arg = p_arr[0];
+        int step_result = regx_check("[0-9]+", arg);
+        if (step_result != 1) {
+            return 0;
+        }
+        int no = (int)strtol(arg, NULL, 10);
+        WP *head = get_head();
+        if (head == NULL) {
+            Log("Can't delete watchpoint %d, head is NULL", no);
+            return 0;
+        }
+        WP *temp_wp = head->next;
+        while (temp_wp != NULL) {
+            if (temp_wp->NO == no) {
+                free_wp(temp_wp);
+                printf("Success delete #%d\n", no);
+                return 0;
+            }
+            temp_wp = temp_wp->next;
+        }
+        if (temp_wp == NULL) {
+            Log("Can't delete #%d, maybe it is free", no);
+        }
+    }
+    return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -237,6 +313,8 @@ static struct {
   {"info", "Display informations about reg state or monitor info", cmd_info},
   {"x", "Scans a specified number of memory from a specified location", cmd_x},
   {"p", "Find the value of the expression", cmd_p},
+  {"w", "Find the value of the expression", cmd_w},
+  {"d", "Find the value of the expression", cmd_d},
 
   /* TODO: Add more commands */
 
