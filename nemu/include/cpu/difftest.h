@@ -34,4 +34,21 @@ static inline bool difftest_check_reg(const char *name, vaddr_t pc, rtlreg_t ref
   return true;
 }
 
+#define RING_BUFFER_MAXSIZE 2048
+#define RING_BUFFER_SIZE 128
+typedef struct {
+    char *buffer;
+    unsigned int head;
+    unsigned int tail;
+    unsigned int size;
+} RingBuffer;
+
+int ring_buffer_create(RingBuffer *rbuf);
+
+void ring_buffer_free(RingBuffer *rbuf);
+
+int ring_buffer_write(RingBuffer *rbuf, char *wbuf);
+
+void ring_buffer_print(RingBuffer *rbuf);
+
 #endif

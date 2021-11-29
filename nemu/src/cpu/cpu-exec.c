@@ -18,6 +18,7 @@ static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 const rtlreg_t rzero = 0;
 rtlreg_t tmp_reg[4];
+RingBuffer *ringBuffer = NULL;
 
 void device_update();
 
@@ -25,10 +26,7 @@ void fetch_decode(Decode *s, vaddr_t pc);
 
 WP *get_head();
 
-static void debug_hook(vaddr_t pc, const char *asmbuf) {
-//    log_write("%s\n", asmbuf);
-//    if (g_print_step) { puts(asmbuf); }
-
+static void debug_hook(vaddr_t pc) {
     // 获取wp中的数据并计算值是否发生变化
     WP *head = get_head();
     if (head == NULL) {
@@ -55,13 +53,64 @@ static void debug_hook(vaddr_t pc, const char *asmbuf) {
     }
 }
 
+int ring_buffer_create(RingBuffer *rbuf) {
+    rbuf->buffer = malloc(RING_BUFFER_MAXSIZE);
+    rbuf->head = rbuf->tail = 0;
+    rbuf->size = RING_BUFFER_MAXSIZE;
+    return 0;
+}
+
+void ring_buffer_free(RingBuffer *rbuf) {
+    free(rbuf->buffer);
+    rbuf->head = rbuf->tail = 0;
+}
+
+int ring_buffer_write(RingBuffer *rbuf, char *wbuf) {
+    if (rbuf->head >= rbuf->size) {
+        rbuf->head = 0;
+    }
+    memcpy(rbuf->buffer + rbuf->head, wbuf, RING_BUFFER_SIZE);
+    rbuf->head += RING_BUFFER_SIZE;
+    return 0;
+}
+
+void ring_buffer_print(RingBuffer *rbuf) {
+    unsigned int point = 0;
+    char temp_buf[RING_BUFFER_SIZE];
+    unsigned int target = rbuf->head;
+    if (rbuf->head == 0) {
+        target = RING_BUFFER_MAXSIZE + RING_BUFFER_SIZE;
+    }
+    while (point < RING_BUFFER_MAXSIZE) {
+        memcpy(temp_buf, rbuf->buffer + point, RING_BUFFER_SIZE);
+        if (point + RING_BUFFER_SIZE == target) {
+            printf("--> %s\n", temp_buf);
+        } else {
+            printf("    %s\n", temp_buf);
+        }
+        point += RING_BUFFER_SIZE;
+    }
+}
+
+static void iringbuf(char *asmbuf) {
+    if (ringBuffer == NULL) {
+        ringBuffer = (RingBuffer *)malloc(sizeof(RingBuffer));
+        if (ringBuffer == NULL) {
+            Log("Init ringBuffer failed, malloc failed");
+        }
+        ring_buffer_create(ringBuffer);
+    }
+    ring_buffer_write(ringBuffer, asmbuf);
+}
+
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
     if (ITRACE_COND) log_write("%s\n", _this->logbuf);
+    if (ITRACE_COND) iringbuf(_this->logbuf);
 #endif
 
 #ifdef CONFIG_WATCHPOINT
-    debug_hook(_this->pc, _this->logbuf);
+    debug_hook(_this->pc);
 #endif
     if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
     IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -162,6 +211,8 @@ void cpu_exec(uint64_t n) {
                   ASNI_FMT("HIT BAD TRAP", ASNI_FG_RED))),
                 nemu_state.halt_pc);
             // fall through
+            ring_buffer_print(ringBuffer);
+            ring_buffer_free(ringBuffer);
         case NEMU_QUIT:
             statistic();
     }
