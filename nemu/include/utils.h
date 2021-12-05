@@ -58,5 +58,15 @@ uint64_t get_time();
     log_write(__VA_ARGS__); \
   } while (0)
 
+#define ftrace_write(...) IFDEF(CONFIG_ITRACE_FUN, \
+  do { \
+    extern FILE* ftrace_log_fp; \
+    extern bool ftrace_log_enable(); \
+    if (ftrace_log_enable()) { \
+      fprintf(ftrace_log_fp, __VA_ARGS__); \
+      fflush(ftrace_log_fp); \
+    } \
+  } while (0) \
+)
 
 #endif

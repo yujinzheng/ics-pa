@@ -26,6 +26,9 @@ void fetch_decode(Decode *s, vaddr_t pc);
 
 WP *get_head();
 
+char *get_fun_and_addr(vaddr_t pc, bool *success);
+
+#ifdef CONFIG_WATCHPOINT
 static void debug_hook(vaddr_t pc) {
     // 获取wp中的数据并计算值是否发生变化
     WP *head = get_head();
@@ -52,6 +55,7 @@ static void debug_hook(vaddr_t pc) {
         temp_wp = temp_wp->next;
     }
 }
+#endif
 
 int ring_buffer_create(RingBuffer *rbuf) {
     rbuf->buffer = malloc(RING_BUFFER_MAXSIZE);
@@ -92,6 +96,7 @@ void ring_buffer_print(RingBuffer *rbuf) {
     }
 }
 
+#ifdef CONFIG_ITRACE_COND
 static void iringbuf(char *asmbuf) {
     if (ringBuffer == NULL) {
         ringBuffer = (RingBuffer *)malloc(sizeof(RingBuffer));
@@ -102,6 +107,231 @@ static void iringbuf(char *asmbuf) {
     }
     ring_buffer_write(ringBuffer, asmbuf);
 }
+#endif
+
+#ifdef CONFIG_ITRACE_FUN
+Elf32_Sym *sh_sym_tab = NULL;
+Elf32_Shdr *sh_sym_dr = NULL;
+char *sh_str_tab = NULL;
+void init_ftrace_log(const char *log_file);
+
+// 根据当前的地址获取函数名称和地址
+// 返回的数据使用完成之后一定要free
+char *get_fun_and_addr(vaddr_t addr, bool *success) {
+    *success = true;
+    int str_offset = -1;
+    int fun_addr = -1;
+    if (sh_sym_tab == NULL || sh_str_tab == NULL || sh_sym_dr == NULL) {
+        printf("Had not init ftrace\n");
+        *success = false;
+        return NULL;
+    }
+    for (int idx = 0; idx < sh_sym_dr->sh_size; ++idx) {
+        if (sh_sym_tab[idx].st_info == STT_FUNC) {
+            if (addr == sh_sym_tab[idx].st_value) {
+                str_offset = sh_sym_tab[idx].st_name;
+                fun_addr = sh_sym_tab[idx].st_value;
+                break;
+            }
+        }
+    }
+
+    char *result = (char *)malloc(strlen(&sh_str_tab[str_offset]) + 11);
+    if (result == NULL) {
+        printf("Fun name and addr malloc failed\n");
+        *success = false;
+        return NULL;
+    }
+
+    if (str_offset < 0) {
+        printf("Can not find correct sym tab, pc is: 0x%08x\n", addr);
+        sprintf(result, "???@0x%08x", fun_addr);
+    } else {
+        sprintf(result, "%s@0x%08x", &sh_str_tab[str_offset], fun_addr);
+    }
+    return result;
+}
+
+int check_elf(FILE *file, Elf32_Ehdr *elf_head) {
+    int flag;
+
+    // 将ELF头读取出来
+    // 参数1：读取内容存储地址，参数2：读取内容大小，参数3：读取次数，参数4：文件读取引擎，返回值为成功读取的次数
+    // 作用：从文件中读取n次数据，每次读取指定内容大小，然后将数据存储在给定的内容中
+    flag = (int)fread(elf_head, sizeof(Elf32_Ehdr), 1, file);
+    if (1 != flag) {
+        printf("Fail to read head table\n");
+        return 1;
+    }
+
+    // elf_ident中存储的是ELF的魔数和其他信息
+    // elf_ident的魔数在第一位，取值为0x7f
+    // elf_ident的第二到四位存储的是“ELF”
+    if (elf_head->e_ident[0] != 0x7f || elf_head->e_ident[1] != 'E' || elf_head->e_ident[2] != 'L' ||
+        elf_head->e_ident[3] != 'F') {
+        printf("Not a ELF file\n");
+        return 1;
+    }
+    return 0;
+}
+
+// 读取节区头信息
+int get_shdr(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
+    int flag;
+
+    // 解析节区头，为节区头分配内存
+    // ELF头中的e_shnum存储的是节表区的数量，这里申请了一个大内存，将整个节区头都存储进去
+    if (NULL == sh_eh_dr) {
+        printf("Section table malloc failed\n");
+        return 1;
+    }
+
+    // 设置ELF文件的偏移量（跳过ELF头），准备读取节表区信息
+    // 参数1：输入流，参数2：偏移量，参数3：开始添加偏移的位置，返回0则代表成功
+    // 将文件流的读取指针偏移到偏移量+开始偏移的位置处
+    flag = (int)fseek(file, elf_head->e_shoff, SEEK_SET);
+    if (0 != flag) {
+        printf("Fail to seed section table\n");
+        return 1;
+    }
+
+    // 读取节区头信息
+    // 节表存储的是每个节区的头信息，读取到节区头后，就可以从里面读取符号表头和字符串表头
+    flag = (int)fread(sh_eh_dr, sizeof(Elf32_Shdr) * elf_head->e_shnum, 1, file);
+    if (1 != flag) {
+        printf("Fail to read section table\n");
+        return 1;
+    }
+
+    // 节区头读取完毕后，恢复输入流的指针到开头
+    rewind(file);
+    return 0;
+}
+
+// 读取字符串表
+int get_str_tab(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
+    int flag;
+
+    // 将ELF文件的指针偏移到字符串表的位置
+    flag = (int)fseek(file, sh_eh_dr[elf_head->e_shstrndx].sh_offset, SEEK_SET);
+    if (0 != flag) {
+        printf("Offset pointer to str table failed\n");
+        return 1;
+    }
+
+    // 节表中的第e_shstrndx项是字符串表，准备读取字符串表
+    sh_str_tab = (char *)malloc(sh_eh_dr[elf_head->e_shstrndx].sh_size);
+    if (sh_str_tab == NULL) {
+        printf("String table malloc failed\n");
+        return 1;
+    }
+
+    // 从ELF文件中读取字符串表信息（ELF文件之前已经设置过offset）
+    flag = (int)fread(sh_str_tab, sh_eh_dr[elf_head->e_shstrndx].sh_size, 1, file);
+    if (1 != flag) {
+        printf("Fail to read string table\n");
+        return 1;
+    }
+
+    // 文件读取完毕后，恢复输入流的指针到开头
+    rewind(file);
+    return 0;
+}
+
+// 获取字符表信息
+int get_sym_tab(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
+    int flag;
+
+    // 遍历节区头，将sh_type等于2的数据读取出来，这就是字符表头
+    sh_sym_dr = (Elf32_Shdr *)malloc(sizeof(Elf32_Shdr));
+    if (NULL == sh_sym_dr) {
+        printf("Sym head malloc failed\n");
+        return 1;
+    }
+    for (int idx = 0; idx < elf_head->e_shnum; idx++) {
+        if (sh_eh_dr[idx].sh_type == 2) {
+            *sh_sym_dr = sh_eh_dr[idx];
+            break;
+        }
+    }
+
+    if (sh_sym_dr == NULL || sh_sym_dr->sh_type != 2) {
+        printf("Fail to read sym table\n");
+        return 1;
+    }
+
+    // 根据字符表头读取字符表信息
+    sh_sym_tab = (Elf32_Sym *)malloc(sizeof(Elf32_Sym) * sh_sym_dr->sh_size);
+    if (NULL == sh_sym_tab) {
+        printf("Sym table malloc failed\n");
+        return 1;
+    }
+    // 将ELF文件的指针偏移到字符表的位置
+    flag = fseek(file, sh_sym_dr->sh_offset, SEEK_SET);
+    if (0 != flag) {
+        printf("Offset pointer to sym table failed\n");
+        return 1;
+    }
+    // 从ELF文件中读取字符表信息
+    flag = (int)fread(sh_sym_tab, sh_sym_dr->sh_size, 1, file);
+    if (1 != flag) {
+        printf("Fail to read sym table\n");
+        return 1;
+    }
+    return 0;
+}
+
+int parse_elf(FILE *file) {
+    FILE *elf_file = file;
+    Elf32_Ehdr *elf_head = (Elf32_Ehdr *)malloc(sizeof(Elf32_Ehdr));
+    if (NULL == elf_head) {
+        printf("ELF head malloc failed\n");
+        return 1;
+    }
+
+    // 检查elf文件格式是否正确
+    if (check_elf(file, elf_head) == 1) {
+        return 1;
+    }
+
+    // 获取节区头信息
+    Elf32_Shdr *sh_eh_dr = (Elf32_Shdr *)malloc(sizeof(Elf32_Shdr) * elf_head->e_shnum);;
+    if (get_shdr(elf_file, elf_head, sh_eh_dr) == 1) {
+        return 1;
+    }
+
+    // 获取字符串表
+    if (get_str_tab(elf_file, elf_head, sh_eh_dr) == 1) {
+        return 1;
+    }
+
+    // 获取字符表
+    if (get_sym_tab(elf_file, elf_head, sh_eh_dr) == 1) {
+        return 1;
+    }
+
+    free(elf_head);
+    free(sh_eh_dr);
+
+    return 0;
+}
+
+void init_ftrace(const char *elf_file, const char *ftrace_log) {
+    init_ftrace_log(ftrace_log);
+    if (elf_file != NULL) {
+        FILE *fp = fopen(elf_file, "r");
+        assert(fp != NULL);
+        int a = parse_elf(fp);
+        fclose(fp);
+        if (a == 1) {
+            assert(0);
+        }
+    }
+}
+
+#else
+void init_ftrace(const char *elf_file, const char *ftrace_log) { }
+#endif
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
@@ -111,6 +341,12 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
 #ifdef CONFIG_WATCHPOINT
     debug_hook(_this->pc);
+#endif
+#ifdef CONFIG_ITRACE_FUN
+    bool success = true;
+    char *fun_and_addr = get_fun_and_addr(_this->snpc, &success);
+    ftrace_write("0x%08x:[%s]\n", _this->pc, fun_and_addr);
+    free(fun_and_addr);
 #endif
     if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
     IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -211,9 +447,9 @@ void cpu_exec(uint64_t n) {
                   ASNI_FMT("HIT BAD TRAP", ASNI_FG_RED))),
                 nemu_state.halt_pc);
             // fall through
+        case NEMU_QUIT:
             ring_buffer_print(ringBuffer);
             ring_buffer_free(ringBuffer);
-        case NEMU_QUIT:
             statistic();
     }
 }

@@ -9,6 +9,8 @@ void init_mem();
 
 void init_difftest(char *ref_so_file, long img_size, int port);
 
+void init_ftrace(const char *elf_file, const char *ftrace_log);
+
 void init_device();
 
 void init_sdb();
@@ -17,7 +19,7 @@ void init_disasm(const char *triple);
 
 static void welcome() {
     Log("Trace: %s", MUXDEF(CONFIG_TRACE, ASNI_FMT("ON", ASNI_FG_GREEN), ASNI_FMT("OFF", ASNI_FG_RED)));
-    IFDEF(CONFIG_TRACE, Log("If trace is enabled, a log file will be generated "
+    IFDEF(q, Log("If trace is enabled, a log file will be generated "
                             "to record the trace. This may lead to a large log file. "
                             "If it is not necessary, you can disable it in menuconfig"));
     Log("Build time: %s, %s", __TIME__, __DATE__);
@@ -34,6 +36,8 @@ void sdb_set_batch_mode();
 static char *log_file = NULL;
 static char *diff_so_file = NULL;
 static char *img_file = NULL;
+static char *elf_file = NULL;
+static char *ftrace_log = NULL;
 static int difftest_port = 1234;
 
 static long load_img() {
@@ -64,6 +68,8 @@ static int parse_args(int argc, char *argv[]) {
             {"log",   required_argument, NULL, 'l'},
             {"diff",  required_argument, NULL, 'd'},
             {"port",  required_argument, NULL, 'p'},
+            {"elf",   required_argument, NULL, 'e'},
+            {"ftrace",required_argument, NULL, 'f'},
             {"help",  no_argument,       NULL, 'h'},
             {0, 0,                       NULL, 0},
     };
@@ -82,6 +88,12 @@ static int parse_args(int argc, char *argv[]) {
             case 'd':
                 diff_so_file = optarg;
                 break;
+            case 'e':
+                elf_file = optarg;
+                break;
+            case 'f':
+                ftrace_log = optarg;
+                break;
             case 1:
                 img_file = optarg;
                 return optind - 1;
@@ -91,6 +103,8 @@ static int parse_args(int argc, char *argv[]) {
                 printf("\t-l,--log=FILE           output log to FILE\n");
                 printf("\t-d,--diff=REF_SO        run DiffTest with reference REF_SO\n");
                 printf("\t-p,--port=PORT          run DiffTest with port PORT\n");
+                printf("\t-e,--elf=ELF_FILE       run DiffTest with reference ELF_FILE\n");
+                printf("\t-f,--ftrace=FILE        output ftrace log to FILE\n");
                 printf("\n");
                 exit(0);
         }
@@ -110,6 +124,8 @@ void init_monitor(int argc, char *argv[]) {
     /* Open the log file. */
     init_log(log_file);
 
+    /* 生成输入elf文件的ftrace*/
+    init_ftrace(elf_file, ftrace_log);
     /* Initialize memory. */
     init_mem();
 
