@@ -105,6 +105,10 @@ endif
 $(DST_DIR)/%.o: %.c
 	@mkdir -p $(dir $@) && echo + CC $<
 	@$(CC) -std=gnu11 $(CFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CC) $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (compile): a single `.cc` -> `.o` (g++)
 $(DST_DIR)/%.o: %.cc
