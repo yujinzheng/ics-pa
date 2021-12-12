@@ -3,6 +3,7 @@
 #include <cpu/difftest.h>
 #include <isa-all-instr.h>
 #include <locale.h>
+#include <elf.h>
 #include "../monitor/sdb/sdb.h"
 
 /* The assembly code of instructions executed is only output to the screen
@@ -127,8 +128,9 @@ char *get_fun_and_addr(vaddr_t addr, bool *success) {
         return NULL;
     }
     for (int idx = 0; idx < sh_sym_dr->sh_size; ++idx) {
-        if (sh_sym_tab[idx].st_info == STT_FUNC) {
-            if (addr == sh_sym_tab[idx].st_value) {
+        if (ELF32_ST_TYPE(sh_sym_tab[idx].st_info) == STT_FUNC) {
+            unsigned int scope = sh_sym_tab[idx].st_value + sh_sym_tab[idx].st_size;
+            if (addr >= sh_sym_tab[idx].st_value && addr < scope) {
                 str_offset = sh_sym_tab[idx].st_name;
                 fun_addr = sh_sym_tab[idx].st_value;
                 break;
@@ -144,7 +146,7 @@ char *get_fun_and_addr(vaddr_t addr, bool *success) {
     }
 
     if (str_offset < 0) {
-        printf("Can not find correct sym tab, pc is: 0x%08x\n", addr);
+        printf("Can not find correct sym tab, addr is: 0x%08x\n", addr);
         sprintf(result, "???@0x%08x", fun_addr);
     } else {
         sprintf(result, "%s@0x%08x", &sh_str_tab[str_offset], fun_addr);
@@ -179,13 +181,6 @@ int check_elf(FILE *file, Elf32_Ehdr *elf_head) {
 int get_shdr(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
     int flag;
 
-    // 解析节区头，为节区头分配内存
-    // ELF头中的e_shnum存储的是节表区的数量，这里申请了一个大内存，将整个节区头都存储进去
-    if (NULL == sh_eh_dr) {
-        printf("Section table malloc failed\n");
-        return 1;
-    }
-
     // 设置ELF文件的偏移量（跳过ELF头），准备读取节表区信息
     // 参数1：输入流，参数2：偏移量，参数3：开始添加偏移的位置，返回0则代表成功
     // 将文件流的读取指针偏移到偏移量+开始偏移的位置处
@@ -213,21 +208,21 @@ int get_str_tab(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
     int flag;
 
     // 将ELF文件的指针偏移到字符串表的位置
-    flag = (int)fseek(file, sh_eh_dr[elf_head->e_shstrndx].sh_offset, SEEK_SET);
+    flag = (int)fseek(file, sh_eh_dr[elf_head->e_shstrndx - 1].sh_offset, SEEK_SET);
     if (0 != flag) {
         printf("Offset pointer to str table failed\n");
         return 1;
     }
 
     // 节表中的第e_shstrndx项是字符串表，准备读取字符串表
-    sh_str_tab = (char *)malloc(sh_eh_dr[elf_head->e_shstrndx].sh_size);
+    sh_str_tab = (char *)malloc(sh_eh_dr[elf_head->e_shstrndx - 1].sh_size);
     if (sh_str_tab == NULL) {
         printf("String table malloc failed\n");
         return 1;
     }
 
     // 从ELF文件中读取字符串表信息（ELF文件之前已经设置过offset）
-    flag = (int)fread(sh_str_tab, sh_eh_dr[elf_head->e_shstrndx].sh_size, 1, file);
+    flag = (int)fread(sh_str_tab, sh_eh_dr[elf_head->e_shstrndx - 1].sh_size, 1, file);
     if (1 != flag) {
         printf("Fail to read string table\n");
         return 1;
@@ -249,14 +244,14 @@ int get_sym_tab(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
         return 1;
     }
     for (int idx = 0; idx < elf_head->e_shnum; idx++) {
-        if (sh_eh_dr[idx].sh_type == 2) {
+        if (sh_eh_dr[idx].sh_type == SHT_SYMTAB) {
             *sh_sym_dr = sh_eh_dr[idx];
             break;
         }
     }
 
     if (sh_sym_dr == NULL || sh_sym_dr->sh_type != 2) {
-        printf("Fail to read sym table\n");
+        printf("Can not find sym table\n");
         return 1;
     }
 
@@ -272,6 +267,7 @@ int get_sym_tab(FILE *file, Elf32_Ehdr *elf_head, Elf32_Shdr *sh_eh_dr) {
         printf("Offset pointer to sym table failed\n");
         return 1;
     }
+
     // 从ELF文件中读取字符表信息
     flag = (int)fread(sh_sym_tab, sh_sym_dr->sh_size, 1, file);
     if (1 != flag) {
@@ -295,7 +291,12 @@ int parse_elf(FILE *file) {
     }
 
     // 获取节区头信息
-    Elf32_Shdr *sh_eh_dr = (Elf32_Shdr *)malloc(sizeof(Elf32_Shdr) * elf_head->e_shnum);;
+    Elf32_Shdr *sh_eh_dr = (Elf32_Shdr *)malloc(sizeof(Elf32_Shdr) * elf_head->e_shnum);
+    if (NULL == sh_eh_dr) {
+        printf("Section table malloc failed\n");
+        return 1;
+    }
+
     if (get_shdr(elf_file, elf_head, sh_eh_dr) == 1) {
         return 1;
     }
@@ -312,7 +313,6 @@ int parse_elf(FILE *file) {
 
     free(elf_head);
     free(sh_eh_dr);
-
     return 0;
 }
 
@@ -341,12 +341,6 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
 #ifdef CONFIG_WATCHPOINT
     debug_hook(_this->pc);
-#endif
-#ifdef CONFIG_ITRACE_FUN
-    bool success = true;
-    char *fun_and_addr = get_fun_and_addr(_this->snpc, &success);
-    ftrace_write("0x%08x:[%s]\n", _this->pc, fun_and_addr);
-    free(fun_and_addr);
 #endif
     if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
     IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));

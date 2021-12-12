@@ -4,8 +4,6 @@ include $(NEMU_HOME)/tools/difftest.mk
 # Some convenient rules
 
 override ARGS ?= --log=$(BUILD_DIR)/nemu-log.txt
-override FT_ARGS ?= --ftrace=$(BUILD_DIR)/ftrace-log.txt
-override ARGS += $(FT_ARGS)
 override ARGS += $(ARGS_DIFF)
 
 # Command to execute NEMU

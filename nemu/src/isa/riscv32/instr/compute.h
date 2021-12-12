@@ -1,4 +1,7 @@
 static word_t zero_null = 0;
+#ifdef CONFIG_ITRACE_FUN
+static word_t call_depth = 1;
+#endif
 
 def_EHelper(lui) {
     rtl_li(s, ddest, id_src1->imm);
@@ -13,6 +16,15 @@ def_EHelper(jal) {
     id_src1->simm = id_src1->imm;
     id_src1->simm = (id_src1->simm << 11) >> 11;
     rtl_j(s, s->pc + id_src1->simm);
+#ifdef CONFIG_ITRACE_FUN
+    bool success = true;
+    char *fun_and_addr = get_fun_and_addr(s->dnpc, &success);
+    if (success == true) {
+        ftrace_write("0x%08x:%*scall [%s]\n", s->pc, call_depth," ", fun_and_addr);
+        call_depth++;
+    }
+    free(fun_and_addr);
+#endif
 }
 
 def_EHelper(jalr) {
@@ -20,6 +32,26 @@ def_EHelper(jalr) {
     id_src2->imm = (id_src2->imm << 12) >> 12;
     rtlreg_t *x_rs1 = s->isa.instr.i.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.i.rs1);
     rtl_j(s, *x_rs1 + id_src2->imm);
+#ifdef CONFIG_ITRACE_FUN
+    // 先判断是否是返回，ret是一个伪指令，等价为jalr ra 0($0)
+    if (s->isa.instr.i.rs1 == 1 && s->isa.instr.i.rd == 0 && id_src2->imm == 0) {
+        bool success = true;
+        char *fun_and_addr = get_fun_and_addr(s->dnpc, &success);
+        if (success == true) {
+            call_depth--;
+            ftrace_write("0x%08x:%*sret [%s]\n", s->pc, call_depth," ", fun_and_addr);
+        }
+        free(fun_and_addr);
+    } else {
+        bool success = true;
+        char *fun_and_addr = get_fun_and_addr(s->dnpc, &success);
+        if (success == true) {
+            ftrace_write("0x%08x:%*scall [%s]\n", s->pc, call_depth," ", fun_and_addr);
+            call_depth++;
+        }
+        free(fun_and_addr);
+    }
+#endif
 }
 
 def_EHelper(beq) {
