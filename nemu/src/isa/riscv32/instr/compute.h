@@ -262,11 +262,35 @@ def_EHelper(mulh) {
 
 def_EHelper(div) {
     rtlreg_t *x_rs1 = s->isa.instr.r.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs1);
+    int rs1 = *x_rs1;
     rtlreg_t *x_rs2 = s->isa.instr.r.rs2 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs2);
+    int rs2 = *x_rs2;
+    if (rs2== 0) {
+        Log("Illegal division by zero of div");
+        assert(0);
+    }
+    rtl_li(s, ddest, rs1 / rs2);
+}
+
+def_EHelper(divu) {
+    rtlreg_t *x_rs1 = s->isa.instr.r.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs1);
+    rtlreg_t *x_rs2 = s->isa.instr.r.rs2 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs2);
+    if (*x_rs2 == 0) {
+        Log("Illegal division by zero of divu");
+        assert(0);
+    }
     rtl_li(s, ddest, *x_rs1 / *x_rs2);
 }
 
 def_EHelper(rem) {
+    rtlreg_t *x_rs1 = s->isa.instr.r.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs1);
+    int rs1 = *x_rs1;
+    rtlreg_t *x_rs2 = s->isa.instr.r.rs2 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs2);
+    int rs2 = *x_rs2;
+    rtl_li(s, ddest, rs1 % rs2);
+}
+
+def_EHelper(remu) {
     rtlreg_t *x_rs1 = s->isa.instr.r.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs1);
     rtlreg_t *x_rs2 = s->isa.instr.r.rs2 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs2);
     rtl_li(s, ddest, *x_rs1 % *x_rs2);
