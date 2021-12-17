@@ -19,17 +19,13 @@ static uint64_t g_timer = 0; // unit: us
 static bool g_print_step = false;
 const rtlreg_t rzero = 0;
 rtlreg_t tmp_reg[4];
-RingBuffer *ringBuffer = NULL;
 
 void device_update();
 
 void fetch_decode(Decode *s, vaddr_t pc);
 
-WP *get_head();
-
-char *get_fun_and_addr(vaddr_t pc, bool *success);
-
 #ifdef CONFIG_WATCHPOINT
+WP *get_head();
 static void debug_hook(vaddr_t pc) {
     // 获取wp中的数据并计算值是否发生变化
     WP *head = get_head();
@@ -58,6 +54,8 @@ static void debug_hook(vaddr_t pc) {
 }
 #endif
 
+#ifdef CONFIG_ITRACE_COND
+RingBuffer *ringBuffer = NULL;
 int ring_buffer_create(RingBuffer *rbuf) {
     rbuf->buffer = malloc(RING_BUFFER_MAXSIZE);
     rbuf->head = rbuf->tail = 0;
@@ -97,7 +95,6 @@ void ring_buffer_print(RingBuffer *rbuf) {
     }
 }
 
-#ifdef CONFIG_ITRACE_COND
 static void iringbuf(char *asmbuf) {
     if (ringBuffer == NULL) {
         ringBuffer = (RingBuffer *)malloc(sizeof(RingBuffer));
@@ -111,6 +108,7 @@ static void iringbuf(char *asmbuf) {
 #endif
 
 #ifdef CONFIG_ITRACE_FUN
+char *get_fun_and_addr(vaddr_t pc, bool *success);
 Elf32_Sym *sh_sym_tab = NULL;
 Elf32_Shdr *sh_sym_dr = NULL;
 char *sh_str_tab = NULL;
@@ -442,8 +440,10 @@ void cpu_exec(uint64_t n) {
                 nemu_state.halt_pc);
             // fall through
         case NEMU_QUIT:
+#ifdef CONFIG_ITRACE_COND
             ring_buffer_print(ringBuffer);
             ring_buffer_free(ringBuffer);
+#endif
             statistic();
     }
 }

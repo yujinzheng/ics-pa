@@ -37,12 +37,25 @@ void init_map() {
   p_space = io_space;
 }
 
+#ifdef CONFIG_DEVICE_TRACE
+void device_trace_read(IOMap *map, word_t value, int len) {
+    printf("---- Device read\tname: %8s\tvalue: 0x%08x\tlen: %d ----\n", map->name, value, len);
+}
+
+void device_trace_write(IOMap *map, word_t data, int len) {
+    printf("++++ Device write\tname: %8s\tdata: 0x%08x\tlen: %d ++++\n", map->name, data, len);
+}
+#endif
+
 word_t map_read(paddr_t addr, int len, IOMap *map) {
   assert(len >= 1 && len <= 8);
   check_bound(map, addr);
   paddr_t offset = addr - map->low;
   invoke_callback(map->callback, offset, len, false); // prepare data to read
   word_t ret = host_read(map->space + offset, len);
+#ifdef CONFIG_DEVICE_TRACE
+    device_trace_read(map, ret, len);
+#endif
   return ret;
 }
 
@@ -52,4 +65,7 @@ void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   paddr_t offset = addr - map->low;
   host_write(map->space + offset, len, data);
   invoke_callback(map->callback, offset, len, true);
+#ifdef CONFIG_DEVICE_TRACE
+    device_trace_write(map, data, len);
+#endif
 }

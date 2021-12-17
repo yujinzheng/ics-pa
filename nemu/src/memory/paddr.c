@@ -38,6 +38,7 @@ void init_mem() {
         (paddr_t) CONFIG_MBASE, (paddr_t) CONFIG_MBASE + CONFIG_MSIZE);
 }
 
+#ifdef CONFIG_ITRACE_MEM
 void mem_trace_read(paddr_t addr, word_t value, int len) {
 #ifdef CONFIG_ITRACE_MEM_SCOPE
     if (CONFIG_ITRACE_MEM_START > addr || CONFIG_ITRACE_MEM_STOP < addr) {
@@ -55,6 +56,7 @@ void mem_trace_write(paddr_t addr, word_t data, int len) {
 #endif
     printf("++++ Memory write\taddr: 0x%08x\tdata: 0x%08x\tlen: %d ++++\n", addr, data, len);
 }
+#endif
 
 word_t paddr_read(paddr_t addr, int len) {
     word_t result;
