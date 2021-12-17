@@ -114,16 +114,28 @@ $(DST_DIR)/%.o: %.c
 $(DST_DIR)/%.o: %.cc
 	@mkdir -p $(dir $@) && echo + CXX $<
 	@$(CXX) -std=c++17 $(CXXFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CC) $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (compile): a single `.cpp` -> `.o` (g++)
 $(DST_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@) && echo + CXX $<
 	@$(CXX) -std=c++17 $(CXXFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CC) $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (compile): a single `.S` -> `.o` (gcc, which preprocesses and calls as)
 $(DST_DIR)/%.o: %.S
 	@mkdir -p $(dir $@) && echo + AS $<
 	@$(AS) $(ASFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CC) $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (recursive make): build a dependent library (am, klib, ...)
 $(LIBS): %:
