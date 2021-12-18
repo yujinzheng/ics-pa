@@ -260,6 +260,20 @@ def_EHelper(mulh) {
     rtl_li(s, ddest, (src1_val_l * src2_val_l) >> 32);
 }
 
+def_EHelper(mulhsu) {
+    rtlreg_t *x_rs1 = s->isa.instr.r.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs1);
+    rtlreg_t *x_rs2 = s->isa.instr.r.rs2 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs2);
+    id_src1->imm = *x_rs1;
+    long src1_val_l = id_src1->imm;
+    src1_val_l = (src1_val_l << 32) >> 32;
+
+    id_src2->imm = *x_rs2;
+    unsigned long src2_val_l = id_src2->imm;
+    src2_val_l = (src2_val_l << 32) >> 32;
+
+    rtl_li(s, ddest, (src1_val_l * src2_val_l) >> 32);
+}
+
 def_EHelper(mulhu) {
     rtlreg_t *x_rs1 = s->isa.instr.r.rs1 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs1);
     rtlreg_t *x_rs2 = s->isa.instr.r.rs2 == 0 ? &zero_null : &gpr(s->isa.instr.r.rs2);

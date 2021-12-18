@@ -7,29 +7,13 @@
 #define BMASK 0x000000ff
 #define AMASK 0x00000000
 
-#define SYNC_ADDR (VGACTL_ADDR + 4)
-/* 按照amdev.h中定义变量的顺序分配mmio中的内存
- * GPU_CONFIG: VGACTL_ADDR
- * GPU_STATUS: VGACTL_ADDR + 8
- * GPU_FBDRAW: VGACTL_ADDR + 16
- * GPU_MEMCPY: VGACTL_ADDR + 24
- * GPU_RENDER: VGACTL_ADDR + 32
- * */
 #define CONFIG_ADDR (VGACTL_ADDR + 0)
-#define FBDRAW_ADDR (VGACTL_ADDR + 8)
-#define MEMCPY_ADDR (VGACTL_ADDR + 12)
-#define RENDER_ADDR (VGACTL_ADDR + 16)
+#define SYNC_ADDR (VGACTL_ADDR + 4)
 
 unsigned int width;
 unsigned int height;
 
 void __am_gpu_init() {
-//    int i;
-//    int w = 800;  // TODO: get the correct width
-//    int h = 600;  // TODO: get the correct height
-//    uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-//    for (i = 0; i < w * h; i ++) fb[i] = i;
-//    outl(SYNC_ADDR, 1);
 }
 
 // 获取显示控制器信息
