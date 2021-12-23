@@ -16,6 +16,7 @@ enum {
 
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
+//uint64_t last_play_time;
 
 /**
  * 音频的回调函数
@@ -25,9 +26,13 @@ static uint32_t *audio_base = NULL;
  * @param len 音频流指针的长度（以bytes计算）
  */
 static void audio_play(void *userdata, uint8_t *stream, int len) {
-    uint32_t start = audio_base[5];
-    uint32_t end = audio_base[6];
-    uint32_t sb_size = (uint32_t)CONFIG_SB_SIZE;
+//    if (get_time() - last_play_time < 40000) {
+//        memset(stream, 0, len);
+//        return;
+//    }
+    volatile uint32_t start = audio_base[5];
+    volatile uint32_t end = audio_base[6];
+    uint32_t sb_size = audio_base[3];
     uint32_t count;
     // 获取count的值时需要判断是否为空
     count = start < end ? end - start : sb_size - start + end;
@@ -39,6 +44,7 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
     if (count < len) {
         nread = count;
     }
+//    printf("111-----start: %u, end: %u, nread: %u\n", start, end, nread);
     // 从SB_BUF中读取数据，然后将其写入到音频流中
     // 涉及到正常内存之外的数据读取，不能直接使用地址访问，只能用mmio_read、mmio_write方法
     uint32_t b = 0;
@@ -55,10 +61,10 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
     }
 
     // 移动start坐标，当超过边界时需要从零开始
-    if ((sb_size - start) > nread) {
-        audio_base[5] += nread;
+    if ((start + nread) < sb_size) {
+        start += nread;
     } else {
-        audio_base[5] = start + nread - sb_size;
+        start = start + nread - sb_size;
     }
 
     // 防止白噪音
@@ -67,51 +73,22 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
     }
 
     // end在初始化一次后就没有再更新了，经过本次读取，如果start等于end，就认为数据空了
-    if (audio_base[5] == audio_base[6]) {
+    if (start == end) {
         audio_base[7] = 1;
     } else {
         audio_base[7] = 0;
     }
-
-//    int count = audio_base[5];
-//    if (count == 0) {
-//        return;
-//    }
-//    int nread = len;
-//    if (count < len) {
-//        nread = count;
-//    }
-//
-//    // 从SB_BUF中读取数据，然后将其写入到音频流中
-//    // 涉及到正常内存之外的数据读取，不能直接使用地址访问，只能用mmio_read、mmio_write方法
-//    int b = 0;
-//    while (b < nread) {
-//        *stream++ = mmio_read(CONFIG_SB_ADDR + b, 1);
-//        b++;
-//    }
-//
-//    if (count > nread) {
-//        int mmio_remain = 0;
-//        while (mmio_remain < count - nread) {
-//            uint32_t data = mmio_read(CONFIG_SB_ADDR + nread + mmio_remain, 4);
-//            mmio_write(CONFIG_SB_ADDR + mmio_remain, 4, data);
-//            mmio_remain += 4;
-//        }
-//    }
-//    count -= nread;
-//    audio_base[5] = count;
-//
-//    if (len > nread) {
-//        memset(stream + nread, 0, len - nread);
-//    }
+    audio_base[5] = start;
+//    printf("222-----start: %u, end: %u, nread: %u\n", start, end, nread);
 }
 
 static void init_SDL() {
+    audio_base[3] = CONFIG_SB_SIZE;
     SDL_AudioSpec s = {};
-    s.freq = reg_freq;
+    s.freq = (int)audio_base[0];
     s.format = AUDIO_S16SYS;
-    s.channels = reg_channels;
-    s.samples = reg_samples;
+    s.channels = audio_base[1];
+    s.samples = audio_base[2];
     s.callback = audio_play;
     s.userdata = NULL;
     audio_base[5] = reg_count;
@@ -125,16 +102,16 @@ static void init_SDL() {
 
 // CPU访问了mmio映射的时候提供的内存地址，也就是访问了划分给Audio的内存段
 static void audio_io_handler(uint32_t offset, int len, bool is_write) {
+    if (is_write) {
+        if (offset == 16 && audio_base[4] == 1) {
+            init_SDL();
+        }
+    }
 }
 
 void init_audio() {
     uint32_t space_size = sizeof(uint32_t) * nr_reg;
     audio_base = (uint32_t *) new_space(space_size);
-    audio_base[0] = reg_freq;
-    audio_base[1] = reg_channels;
-    audio_base[2] = reg_samples;
-    audio_base[3] = CONFIG_SB_SIZE;
-    audio_base[4] = reg_init;
     audio_base[5] = 0;
     audio_base[6] = 0;
     audio_base[7] = 1;
@@ -143,7 +120,7 @@ void init_audio() {
 #else
     add_mmio_map("audio", CONFIG_AUDIO_CTL_MMIO, audio_base, space_size, audio_io_handler);
 #endif
-    init_SDL();
+//    last_play_time = get_time();
     sbuf = (uint8_t *) new_space(CONFIG_SB_SIZE);
     add_mmio_map("audio-sbuf", CONFIG_SB_ADDR, sbuf, CONFIG_SB_SIZE, NULL);
 }

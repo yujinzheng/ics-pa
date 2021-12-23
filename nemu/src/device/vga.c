@@ -1,6 +1,5 @@
 #include <common.h>
 #include <device/map.h>
-#include <device/mmio.h>
 
 #define SCREEN_W (MUXDEF(CONFIG_VGA_SIZE_800x600, 800, 400))
 #define SCREEN_H (MUXDEF(CONFIG_VGA_SIZE_800x600, 600, 300))
@@ -58,7 +57,7 @@ static inline void update_screen() {
 
 void vga_update_screen() {
     if (vgactl_port_base[1]) {
-        update_screen();
+//        last_update_time = get_time();
         vgactl_port_base[1] = 0;
     }
 }

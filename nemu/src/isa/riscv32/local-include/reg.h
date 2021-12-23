@@ -15,4 +15,11 @@ static inline const char* reg_name(int idx, int width) {
   return regs[check_reg_idx(idx)];
 }
 
+#define csr(idx) (csrReg.csr[idx]._32)
+
+static inline const char* csr_name(int idx, int width) {
+    extern const char* csr_regs[];
+    return csr_regs[idx];
+}
+
 #endif

@@ -6,7 +6,14 @@
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 static char trans_tab[16] = "0123456789abcdef";
 
-// 数字转字符串，最大只支持16进制的转换
+/**
+ * int类型的数字转字符串
+ * @param result 转换结果
+ * @param num 需要转换的数字
+ * @param base 进制
+ * @param u_flag 是否为无符号转换
+ * @return
+ */
 char *my_itoa(char *result, int num, int base, int u_flag) {
     if (base > 16 || base < 2) {
         return NULL;
@@ -42,20 +49,78 @@ char *my_itoa(char *result, int num, int base, int u_flag) {
     return result;
 }
 
+/**
+ * long类型的数字转字符串
+ * @param result 转换结果
+ * @param num 需要转换的数字
+ * @param base 进制
+ * @param u_flag 是否为无符号转换
+ * @return
+ */
+char *my_itoa_l(char *result, long num, int base, int u_flag) {
+    if (base > 16 || base < 2) {
+        return NULL;
+    }
+
+    int p = 0;
+    // 中间变量
+    unsigned long unum;
+
+    // 只有u_flag为0的十进制才需要考虑负数
+    if (base == 10 && num < 0 && u_flag == 0) {
+        unum = (unsigned long)-num;
+    } else {
+        unum = (unsigned long)num;
+    }
+
+    do {
+        result[p++] = trans_tab[unum%(unsigned int)base];
+        unum /= base;
+    } while (unum);
+    result[p] = '\0';
+
+    if (base == 10 && num < 0 && u_flag == 0) {
+        result[p++] = '-';
+    }
+
+    char temp;
+    for (int idx = 0; idx < p - idx; idx++) {
+        temp = result[idx];
+        result[idx] = result[p - idx - 1];
+        result[p - idx - 1] = temp;
+    }
+    return result;
+}
+
 int vsprintf(char *out, const char *fmt, va_list ap) {
     char *out_p;
-    char tmp_buf[256];
-    if (*out != '\0') {
+    unsigned int count = 0;
+    if (out != NULL && *out != '\0') {
         memset(out, '\0', strlen(out));
     }
-    memset(tmp_buf, '\0', sizeof(tmp_buf));
     for (out_p = out; *fmt != '\0'; fmt++) {
         if (*fmt != '%') {
-            *out_p++ = *fmt;
+            if (out == NULL) {
+                putch(*fmt);
+            } else {
+                *out_p++ = *fmt;
+            }
+            count++;
             continue;
         }
         fmt++;
         unsigned int width = 0;
+
+        // %%，当做一个普通的%处理
+        if (*fmt == '%') {
+            if (out == NULL) {
+                putch(*fmt);
+            } else {
+                *out_p++ = *fmt;
+            }
+            count++;
+            continue;
+        }
 
         // 检查在%之后是否有长度数据，最多支持长度数据最大位99
         while (*fmt >= '0' && *fmt <= '9') {
@@ -65,16 +130,19 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
             fmt++;
         }
 
-        int dd = 0;
+        //
+        int is_long = 0;
+        if (*fmt == 'l') {
+            is_long = 1;
+            fmt++;
+        }
+
         int base = -1;
         int u_flag = 0;
         char *ss;
         unsigned int buf_len = 0;
+
         switch (*fmt) {
-            // %%，当做一个普通的%处理
-            case '%':
-                *out_p++ = *fmt;
-                break;
             case 'u':
                 base = 10;
                 u_flag = 1;
@@ -96,46 +164,76 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
                 ss = va_arg(ap, char *);
                 buf_len = strlen(ss);
                 while (width > buf_len) {
-                    *out_p++ = ' ';
+                    if (out == NULL) {
+                        putch(' ');
+                    } else {
+                        *out_p++ = ' ';
+                    }
+                    count++;
                     width--;
                 }
                 while (*ss != '\0') {
-                    *out_p++ = *ss++;
+                    if (out == NULL) {
+                        putch(*ss++);
+                    } else {
+                        *out_p++ = *ss++;
+                    }
+                    count++;
                 }
                 break;
             default:
                 break;
         }
         if (base > 0) {
-            dd = (int)va_arg(ap, int);
-            if (my_itoa(tmp_buf, dd, base, u_flag) == NULL) {
-                return -1;
+            char tmp_buf[256];
+            memset(tmp_buf, '\0', sizeof(tmp_buf));
+            if (is_long) {
+                long dd = 0;
+                dd = (long)va_arg(ap, long);
+                if (my_itoa_l(tmp_buf, dd, base, u_flag) == NULL) {
+                    return -1;
+                }
+            } else {
+                int dd = 0;
+                dd = (int)va_arg(ap, int);
+                if (my_itoa(tmp_buf, dd, base, u_flag) == NULL) {
+                    return -1;
+                }
             }
             buf_len = strlen(tmp_buf);
-            if (buf_len < width) {
-                memset(out_p, '0', width - buf_len);
-                out_p = out_p + width - buf_len;
-                memcpy(out_p, tmp_buf, buf_len);
-                out_p = out_p + buf_len;
+            if (out == NULL) {
+                while (buf_len < width) {
+                    putch('0');
+                    count++;
+                    width--;
+                }
+                for (int idx = 0; idx < buf_len; idx++) {
+                    putch(tmp_buf[idx]);
+                    count++;
+                }
             } else {
-                memcpy(out_p, tmp_buf, buf_len);
-                out_p = out_p + buf_len;
+                if (buf_len < width) {
+                    memset(out_p, '0', width - buf_len);
+                    out_p = out_p + width - buf_len;
+                    memcpy(out_p, tmp_buf, buf_len);
+                    out_p = out_p + buf_len;
+                    count += width;
+                } else {
+                    memcpy(out_p, tmp_buf, buf_len);
+                    out_p = out_p + buf_len;
+                    count += buf_len;
+                }
             }
         }
     }
-    return (out_p - out);
+    return count;
 }
 
 int printf(const char *fmt, ...) {
-    char tmp_out[256];
     va_list ap;
     va_start(ap, fmt);
-    int result = vsprintf(tmp_out, fmt, ap);
+    int result = vsprintf(NULL, fmt, ap);
     va_end(ap);
-    int idx = 0;
-    while (tmp_out[idx] != '\0') {
-        putch(tmp_out[idx++]);
-    }
     return result;
 }
 

@@ -44,7 +44,7 @@ $(OBJ_DIR)/%.o: %.cc
 	@$(CXX) $(CFLAGS) $(CXXFLAGS) -c -o $@ $<
 	$(call call_fixdep, $(@:.o=.d), $@)
 #   下面的代码可以打印详细的代码信息
-	@$(CC) $(CFLAGS) -E $< | \
+	@$(CXX) $(CFLAGS) $(CXXFLAGS) -E $< | \
 		grep -ve '^#' | \
 		clang-format - > $(basename $@).i
 

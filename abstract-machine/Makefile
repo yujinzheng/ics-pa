@@ -115,7 +115,7 @@ $(DST_DIR)/%.o: %.cc
 	@mkdir -p $(dir $@) && echo + CXX $<
 	@$(CXX) -std=c++17 $(CXXFLAGS) -c -o $@ $(realpath $<)
 #   下面的代码可以打印详细的代码信息
-	@$(CC) $(CFLAGS) -E $< | \
+	@$(CXX) -std=c++17 $(CXXFLAGS) -E $< | \
 		grep -ve '^#' | \
 		clang-format - > $(basename $@).i
 
@@ -124,7 +124,7 @@ $(DST_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@) && echo + CXX $<
 	@$(CXX) -std=c++17 $(CXXFLAGS) -c -o $@ $(realpath $<)
 #   下面的代码可以打印详细的代码信息
-	@$(CC) $(CFLAGS) -E $< | \
+	@$(CXX) -std=c++17 $(CXXFLAGS) -E $< | \
 		grep -ve '^#' | \
 		clang-format - > $(basename $@).i
 
@@ -133,7 +133,7 @@ $(DST_DIR)/%.o: %.S
 	@mkdir -p $(dir $@) && echo + AS $<
 	@$(AS) $(ASFLAGS) -c -o $@ $(realpath $<)
 #   下面的代码可以打印详细的代码信息
-	@$(CC) $(CFLAGS) -E $< | \
+	@$(AS) $(ASFLAGS) -E $< | \
 		grep -ve '^#' | \
 		clang-format - > $(basename $@).i
 
