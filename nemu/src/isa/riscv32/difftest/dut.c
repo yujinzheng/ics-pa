@@ -7,6 +7,10 @@
 bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc) {
 //    printf("===================ref pc: %08x, cpu pc: %08x\n", ref_r->pc, cpu.pc);
     if (ref_r->pc != cpu.pc) {
+//        printf("===================ref pc: %08x, cpu pc: %08x\n", ref_r->pc, cpu.pc);
+//        for (int idx = 0; idx < 32; idx++) {
+//            printf("===================id : %d, ref gpr value: %08x, cpu gpr value: %08x\n", idx, ref_r->gpr[idx]._32, cpu.gpr[idx]._32);
+//        }
         return false;
     }
 

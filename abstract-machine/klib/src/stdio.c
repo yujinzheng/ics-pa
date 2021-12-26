@@ -154,6 +154,16 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
             case 'x':
                 base = 16;
                 break;
+            case 'p':
+                base = 16;
+                if (out == NULL) {
+                    putch('0');
+                    putch('x');
+                } else {
+                    *out_p++ = '0';
+                    *out_p++ = 'x';
+                }
+                break;
             case 'o':
                 base = 8;
                 break;

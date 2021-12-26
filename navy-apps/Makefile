@@ -99,21 +99,37 @@ ASFLAGS  +=  $(CFLAGS)
 $(DST_DIR)/%.o: %.c
 	@mkdir -p $(dir $@) && echo + CC $<
 	@$(CC) -std=gnu11 $(CFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CC) -std=gnu11 $(CFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (compile): a single `.cc` -> `.o` (g++)
 $(DST_DIR)/%.o: %.cc
 	@mkdir -p $(dir $@) && echo + CXX $<
 	@$(CXX) -std=c++17 $(CXXFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CXX) -std=c++17 $(CXXFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (compile): a single `.cpp` -> `.o` (g++)
 $(DST_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@) && echo + CXX $<
 	@$(CXX) -std=c++17 $(CXXFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(CXX) -std=c++17 $(CXXFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (compile): a single `.S` -> `.o` (gcc, which calls as)
 $(DST_DIR)/%.o: %.S
 	@mkdir -p $(dir $@) && echo + AS $<
 	@$(AS) $(ASFLAGS) -c -o $@ $(realpath $<)
+#   下面的代码可以打印详细的代码信息
+	@$(AS) $(ASFLAGS) -E $< | \
+		grep -ve '^#' | \
+		clang-format - > $(basename $@).i
 
 ### Rule (recursive make): build dependent libraries (libc, libos, ...)
 libs:

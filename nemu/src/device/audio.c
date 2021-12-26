@@ -32,6 +32,7 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
 //    }
     volatile uint32_t start = audio_base[5];
     volatile uint32_t end = audio_base[6];
+    uint32_t *tmp_stream = (uint32_t *)stream;
     uint32_t sb_size = audio_base[3];
     uint32_t count;
     // 获取count的值时需要判断是否为空
@@ -44,20 +45,29 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
     if (count < len) {
         nread = count;
     }
-//    printf("111-----start: %u, end: %u, nread: %u\n", start, end, nread);
     // 从SB_BUF中读取数据，然后将其写入到音频流中
     // 涉及到正常内存之外的数据读取，不能直接使用地址访问，只能用mmio_read、mmio_write方法
     uint32_t b = 0;
-    uint32_t point;
+    uint32_t point = start;
     while (b < nread) {
-        // 如果读取的数据超出了边界，则需要从头开始读
-        if (start + b < sb_size) {
-            point = start + b;
+        if (point + 4 < sb_size) {
+            *tmp_stream++ = mmio_read(CONFIG_SB_ADDR + point, 4);
+            stream += 4;
+            point += 4;
+            b += 4;
         } else {
-            point = start + b - sb_size;
+            uint32_t need_len = 4;
+            while (need_len > 0) {
+                *stream++ = mmio_read(CONFIG_SB_ADDR + point, 1);
+                point++;
+                b++;
+                need_len--;
+                if (point == sb_size) {
+                    point = 0;
+                }
+            }
+            tmp_stream++;
         }
-        *stream++ = mmio_read(CONFIG_SB_ADDR + point, 1);
-        b++;
     }
 
     // 移动start坐标，当超过边界时需要从零开始
@@ -79,7 +89,6 @@ static void audio_play(void *userdata, uint8_t *stream, int len) {
         audio_base[7] = 0;
     }
     audio_base[5] = start;
-//    printf("222-----start: %u, end: %u, nread: %u\n", start, end, nread);
 }
 
 static void init_SDL() {
