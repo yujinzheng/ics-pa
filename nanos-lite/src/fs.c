@@ -1,12 +1,24 @@
 #include <fs.h>
 
 size_t ramdisk_write(const void *buf, size_t offset, size_t len);
+
 size_t ramdisk_read(void *buf, size_t offset, size_t len);
+
 size_t serial_write(const void *buf, size_t offset, size_t len);
+
 size_t events_read(void *buf, size_t offset, size_t len);
+
 size_t dispinfo_read(void *buf, size_t offset, size_t len);
+
 void set_screen_size(int width, int height);
+
 size_t fb_write(const void *buf, size_t offset, size_t len);
+
+size_t sb_write(const void *buf, size_t offset, size_t len);
+
+size_t sbctl_read(void *buf, size_t offset, size_t len);
+
+size_t sbctl_write(const void *buf, size_t offset, size_t len);
 
 typedef size_t (*ReadFn)(void *buf, size_t offset, size_t len);
 
@@ -22,7 +34,7 @@ typedef struct {
 } Finfo;
 
 enum {
-    FD_STDIN, FD_STDOUT, FD_STDERR, FD_EVENT, FD_FBCTL, FD_FB
+    FD_STDIN, FD_STDOUT, FD_STDERR, FD_EVENT, FD_FBCTL, FD_FB, FD_SB, FD_SBCTL
 };
 
 size_t invalid_read(void *buf, size_t offset, size_t len) {
@@ -43,11 +55,14 @@ static Finfo file_table[] __attribute__((used)) = {
         [FD_EVENT]  = {"/dev/events", 0, 0, events_read, invalid_write},
         [FD_FBCTL]  = {"/proc/dispinfo", 0, 0, dispinfo_read, invalid_write},
         [FD_FB]     = {"/dev/fb", 0, 0, invalid_read, fb_write},
+        [FD_SB]     = {"/dev/sb", 0, 0, invalid_read, sb_write},
+        [FD_SBCTL]  = {"/dev/sbctl", 0, 0, sbctl_read, sbctl_write},
 
 #include "files.h"
 };
 
 int fs_open(const char *pathname, int flags, int mode) {
+//    printf("file open, name is: %s\n", pathname);
     int file_num = sizeof(file_table) / sizeof(file_table[0]);
     for (int idx = 0; idx < file_num; idx++) {
         if (strcmp(pathname, file_table[idx].name) == 0) {
@@ -55,7 +70,7 @@ int fs_open(const char *pathname, int flags, int mode) {
             return idx;
         }
     }
-    Log("Can not find file with file name: %s", *pathname);
+    Log("Can not find file with file name: %s", pathname);
     assert(0);
 }
 
@@ -86,9 +101,7 @@ size_t fs_write(int fd, const void *buf, size_t len) {
         return file_info->write(buf, disk_offset + open_offset, len);
     }
     if (open_offset + len > file_size) {
-        Log("Write data is more than file's size!, file_name: %s, file_size: %d, len: %d", file_info->name, file_size,
-            len);
-        assert(0);
+        len = file_size - open_offset;
     }
     int result = ramdisk_write(buf, open_offset + disk_offset, len);
     file_info->open_offset += result;
@@ -136,6 +149,7 @@ int fs_close(int fd) {
 }
 
 typedef AM_GPU_CONFIG_T gpu_config;
+
 /**
  * 对文件系统进行初始化，获取屏幕的相关信息，然后设置/dev/fb的文件大小
  *
@@ -145,4 +159,5 @@ void init_fs() {
     ioe_read(AM_GPU_CONFIG, &gpuConfig);
     set_screen_size(gpuConfig.width, gpuConfig.height);
     file_table[FD_FB].size = gpuConfig.width * gpuConfig.height * sizeof(uint32_t);
+    printf("fd fb size is: %d\n", file_table[FD_FB].size);
 }

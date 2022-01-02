@@ -38,14 +38,11 @@ size_t events_read(void *buf, size_t offset, size_t len) {
         return 0;
     }
     memset(buf, '\0', len);
-    const char *key_name = keyname[inputKeyboard.keycode];
-    if (inputKeyboard.keydown == 1) {
-        memcpy(buf, "kd ", 3);
-    } else {
-        memcpy(buf, "ku ", 3);
-    }
-    memcpy(buf + 3, key_name, strlen(key_name));
-    return strlen(key_name) + 3;
+//    printf("=============%s %d %d\n", keyname[inputKeyboard.keycode], inputKeyboard.keydown, inputKeyboard.keycode);
+    char *tmp = (char *)buf;
+    sprintf(tmp, "%d %d", inputKeyboard.keydown, inputKeyboard.keycode);
+//    memcpy(buf, tmp, strlen(tmp));
+    return strlen(tmp);
 }
 
 size_t dispinfo_read(void *buf, size_t offset, size_t len) {
@@ -62,12 +59,16 @@ struct AM_GPU_FBDRAW_T {
     int w, h;
     _Bool sync;
 };
+
 size_t fb_write(const void *buf, size_t offset, size_t len) {
     int x = offset % screen_w;
     int y = offset / screen_w;
     int w = len % screen_w;
+    if (w == 0 && len != 0) {
+        w = screen_w;
+    }
     int h = len / screen_w;
-    printf("x: %d, y: %d, w: %d, h: %d\n", x, y ,w ,h);
+//    printf("x: %d, y: %d, w: %d, h: %d\n", x, y ,w ,h);
     struct AM_GPU_FBDRAW_T gpuFbdraw = {
             .x = x,
             .y = y,
@@ -85,6 +86,39 @@ size_t fb_write(const void *buf, size_t offset, size_t len) {
 //    gpuFbdraw.sync = 1;
     ioe_write(AM_GPU_FBDRAW, &gpuFbdraw);
     return gpuFbdraw.w * gpuFbdraw.h;
+}
+
+typedef AM_AUDIO_PLAY_T AUDIO_PLAY;
+size_t sb_write(const void *buf, size_t offset, size_t len) {
+    void *temp_buf = (void *)buf;
+    AUDIO_PLAY audio_play;
+    audio_play.buf.start = temp_buf;
+    audio_play.buf.end = temp_buf + len;
+    ioe_write(AM_AUDIO_PLAY, &audio_play);
+    printf("=======sb_write\t start: %08x, end: %08x\n", audio_play.buf.start, audio_play.buf.end);
+    return len;
+}
+
+typedef AM_AUDIO_STATUS_T AUDIO_STATUS;
+size_t sbctl_read(void *buf, size_t offset, size_t len) {
+    AUDIO_STATUS audio_status;
+    ioe_read(AM_AUDIO_STATUS, &audio_status);
+    int sb[1];
+    sb[0] = audio_status.count;
+    buf = (void *)sb;
+    return 1;
+}
+
+typedef AM_AUDIO_CTRL_T AUDIO_CTRL;
+size_t sbctl_write(const void *buf, size_t offset, size_t len) {
+    uint32_t *temp_buf = (uint32_t *)buf;
+    AUDIO_CTRL audioCtrl;
+    audioCtrl.freq = temp_buf[0];
+    audioCtrl.channels = temp_buf[1];
+    audioCtrl.samples = temp_buf[2];
+    ioe_write(AM_AUDIO_CTRL, &audioCtrl);
+    printf("=======sbctl_write\t freq: %d, channels: %d, samples: %d\n", temp_buf[0], temp_buf[1], temp_buf[2]);
+    return 3;
 }
 
 typedef long time_t;

@@ -112,7 +112,10 @@ void *memmove(void *dst, const void *src, size_t n) {
 void *memcpy(void *out, const void *in, size_t n) {
     assert(NULL != out);
     assert(NULL != in);
-    assert(n > 0);
+    assert(n >= 0);
+    if (n == 0) {
+        return out;
+    }
     void *ret = out;
 
     // 判断没有内存重叠，从低地址开始复制

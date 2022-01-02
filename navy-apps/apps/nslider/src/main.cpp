@@ -12,7 +12,7 @@
 //   gg - first page
 
 // number of slides
-const int N = 10;
+const int N = 28;
 // slides path pattern (starts from 0)
 const char *path = "/share/slides/slides-%d.bmp";
 
@@ -34,6 +34,7 @@ void prev(int rep) {
   if (rep == 0) rep = 1;
   cur -= rep;
   if (cur < 0) cur = 0;
+    printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);
   render();
 }
 
@@ -41,6 +42,7 @@ void next(int rep) {
   if (rep == 0) rep = 1;
   cur += rep;
   if (cur >= N) cur = N - 1;
+    printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);
   render();
 }
 
@@ -55,23 +57,23 @@ int main() {
   while (1) {
     SDL_Event e;
     SDL_WaitEvent(&e);
-
-    if (e.type == SDL_KEYDOWN) {
+    if (e.type == SDL_KEYDOWN == 1) {
+//        printf("keysym code: %d, SDLK_0: %d\n", e.key.keysym.sym, SDLK_0);
       switch(e.key.keysym.sym) {
-        case SDLK_0: rep = rep * 10 + 0; break;
-        case SDLK_1: rep = rep * 10 + 1; break;
-        case SDLK_2: rep = rep * 10 + 2; break;
-        case SDLK_3: rep = rep * 10 + 3; break;
-        case SDLK_4: rep = rep * 10 + 4; break;
-        case SDLK_5: rep = rep * 10 + 5; break;
-        case SDLK_6: rep = rep * 10 + 6; break;
-        case SDLK_7: rep = rep * 10 + 7; break;
-        case SDLK_8: rep = rep * 10 + 8; break;
-        case SDLK_9: rep = rep * 10 + 9; break;
+        case SDLK_0: rep = rep * 10 + 0;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_1: rep = rep * 10 + 1;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_2: rep = rep * 10 + 2;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_3: rep = rep * 10 + 3;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_4: rep = rep * 10 + 4;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_5: rep = rep * 10 + 5;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_6: rep = rep * 10 + 6;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_7: rep = rep * 10 + 7;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_8: rep = rep * 10 + 8;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
+        case SDLK_9: rep = rep * 10 + 9;printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep);break;
         case SDLK_J:
-        case SDLK_DOWN: next(rep); rep = 0; g = 0; break;
+        case SDLK_DOWN: next(rep); rep = 0; g = 0; printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep); break;
         case SDLK_K:
-        case SDLK_UP: prev(rep); rep = 0; g = 0; break;
+        case SDLK_UP: prev(rep); rep = 0; g = 0; printf("=====total: %d, current: %d, rep: %d\n", N, cur, rep); break;
         case SDLK_G:
           g ++;
           if (g > 1) {

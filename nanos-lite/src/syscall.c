@@ -4,13 +4,14 @@
 
 extern char _end;
 int gettimeofday(intptr_t tv, intptr_t tz);
+
 /**
  * 处理SYS_write事件，将write传入的数据输出到串口
  *
  * @param c 上下文信息
  */
 void sys_write(Context *c) {
-//    printf("=====Sys write fd: %d=====\n", c->GPR2);
+    printf("=====Sys write fd: %d=====\n", c->GPR2);
     int fd = c->GPR2;
     char *buf = (char *)c->GPR3;
     int count = c->GPR4;
@@ -23,7 +24,7 @@ void sys_read(Context *c) {
     char *buf = (char *)c->GPR3;
     int count = c->GPR4;
     int num = fs_read(fd, buf, count);
-//    printf("=====Sys read fd: %d, return: %d, buf: %s=====\n", c->GPR2, num, buf);
+//    printf("=====Sys read fd: %d, return: %d=====\n", c->GPR2, num);
     c->GPRx = num;
 }
 
@@ -33,21 +34,22 @@ void sys_read(Context *c) {
  * @param c 上下文信息
  */
 void sys_brk(Context *c) {
-//    printf("=====Sys brk: %x, %x=====\n", c->GPR2);
+    printf("=====Sys brk: %x, %x=====\n", c->GPR2);
     c->GPRx = 0;
 }
 
 void sys_open(Context *c) {
-//    printf("=====Sys open file: %s=====\n", (char *)(c->GPR2));
+    printf("=====Sys open file: %s=====\n", (char *)(c->GPR2));
     c->GPRx = fs_open((char *)(c->GPR2), c->GPR3, c->GPR4);
 }
 
 void sys_close(Context *c) {
-//    printf("=====Sys close file: %s=====\n", (char *)(c->GPR2));
+//    printf("=====Sys close fd: %d=====\n", c->GPR2);
     c->GPRx = fs_close(c->GPR2);
 }
 
 void sys_lseek(Context *c) {
+//    printf("=====Sys lseek fd: %d=====\n", c->GPR2);
     c->GPRx = fs_lseek(c->GPR2, c->GPR3, c->GPR4);
 }
 

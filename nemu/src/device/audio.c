@@ -19,7 +19,7 @@ static uint32_t *audio_base = NULL;
 //uint64_t last_play_time;
 
 /**
- * 音频的回调函数
+ * 音频的回调函数，用于从缓存读取音频信息到音频流中，SDL将播放音频流中的数据
  *
  * @param userdata 没有使用，回调函数固定值
  * @param stream 即将用于填充音频数据的流的指针

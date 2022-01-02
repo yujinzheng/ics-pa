@@ -13,7 +13,7 @@
 #define AUDIO_SBUF_EMPTY_ADDR (AUDIO_ADDR + 0x1C)
 
 /**
- * 音频写入函数，将音频数据写入到MMIO的流缓冲区中
+ * 音频写入函数，将音频数据写入到MMIO的流缓冲区中，应用程序调用此方法向缓存写入数据
  *
  * @param buf MMIO空间中的流缓冲区
  * @param len 流缓冲区的长度
@@ -37,6 +37,7 @@ static void audio_write(uint8_t *buf, int len) {
         if (start == end && sbuf_empty == 0) {
             continue;
         }
+//        printf("0000+++++start: %08x, end: %08x, sbuf_empty: %08x, remain: %08x, check: %d\n", start, end, buf_size - end, remain, buf_size - end < remain);
         // 当start < end，或者sbuf为空时，获取数据的顺序都是正常的
         if (start < end || (start == end && sbuf_empty == 1)) {
             // 如果end到末尾的距离比剩余的小，那么先让数据一直填充到末尾
@@ -69,7 +70,6 @@ static void audio_write(uint8_t *buf, int len) {
         }
         *(volatile uint32_t *) AUDIO_END_ADDR = end;
         *(volatile uint32_t *) AUDIO_SBUF_EMPTY_ADDR = 0;
-//        printf("333+++++start: %u, end: %u, remain: %u\n", start, end, remain);
         break;
     }
 }
